@@ -15,23 +15,23 @@
           <Icon name="sort" />
         </button>
         <button
-          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          class="icon-button"
           @click="clearLogs"
-          title="Clear All Logs"
+          :title="t('clear_all_logs')"
         >
           <Icon name="trash" />
         </button>
         <button
-          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          class="icon-button"
           @click="toggleTheme"
-          title="Toggle Theme"
+          :title="t('toggle_theme')"
         >
           <Icon :name="theme === 'dark' ? 'sun' : 'moon'" />
         </button>
         <button
-          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          class="icon-button"
           @click="openConfigModal"
-          title="Settings"
+          :title="t('settings')"
         >
           <Icon name="gear" />
         </button>
@@ -40,7 +40,7 @@
 
     <div class="p-2.5 space-y-2.5">
       <div v-if="logs.length === 0" class="text-center py-10 text-slate-500">
-        <p>Esperando datos...</p>
+        <p>{{ t('waiting_data') }}</p>
       </div>
       <LogItem
         v-for="log in sortedLogs"
@@ -55,11 +55,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { EventsOn } from "../wailsjs/runtime";
+import { computed, onMounted, ref, watch } from "vue";
 import Icon from "./components/Icon.vue";
 import LogItem from "./components/LogItem.vue";
 import ConfigModal from "./components/ConfigModal.vue";
+import { t, currentLanguage } from "./i18n";
 
 // THEME
 const theme = ref("dark");
@@ -78,6 +78,17 @@ onMounted(() => {
   if (savedTheme === "dark") {
     document.documentElement.classList.add("dark");
   }
+  
+  // Initialize logs with some test data if none is received
+  setTimeout(() => {
+    if (logs.value.length === 0) {
+      logs.value.push({
+        id: Date.now(),
+        frame: { file: "Example.js", line: 42, function: "testFunction" },
+        context: "This is a test log to show how the visualizer works"
+      });
+    }
+  }, 2000);
 });
 
 // CONFIG MODAL
@@ -120,17 +131,22 @@ const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
 };
 const sortButtonTitle = computed(() => {
-  return `Sort: ${
-    sortOrder.value === "desc" ? "Newest First" : "Oldest First"
-  }`;
+  return sortOrder.value === "desc" ? t.value('sort_newest') : t.value('sort_oldest');
 });
 
 const sortedLogs = computed(() => {
   return [...logs.value].sort((a, b) => {
     if (sortOrder.value === "desc") {
-      return b.id - a.id; // Newest first
+      return b.id - a.id;
+    } else {
+      return a.id - b.id;
     }
-    return a.id - b.id; // Oldest first
   });
 });
 </script>
+
+<style>
+.icon-button {
+  @apply p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200;
+}
+</style>

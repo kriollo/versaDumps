@@ -23,5 +23,4 @@ const icons = {
 };
 
 const iconSvg = computed(() => icons[props.name] || '');
-
 </script>
