@@ -1,0 +1,5 @@
+{
+    "modo": "debug",
+    "message": "Payload complejo para prueba de niveles",
+    "context": "{\"transaccion_id\":\"txn_12345abcde\",\"usuario\":{\"id\":8,\"nombre\":\"jjara\",\"perfil_activo\":true,\"preferencias\":{\"tema\":\"oscuro\",\"notificaciones\":{\"email\":true,\"push\":false,\"sms\":true}}},\"request\":{\"metodo\":\"POST\",\"endpoint\":\"/data\",\"headers\":{\"Content-Type\":\"application/json\",\"User-Agent\":\"curl/7.81.0\"},\"payload_size_bytes\":512},\"tags\":[\"prueba\",\"json\",\"niveles\",\"complejo\"]}"
+}

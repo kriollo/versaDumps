@@ -1,0 +1,27 @@
+{
+    "name": "versadumps/versadumps",
+    "description": "paquete para php para enviar dumps a versaDumps Visualizer",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Versadumps\\Versadumps\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "kriollo",
+            "email": "kriollone@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=7.4",
+        "guzzlehttp/guzzle": "^7.0",
+        "symfony/yaml": "^5.0"
+    },
+    "scripts": {
+        "versadumps-init": "Versadumps\\Versadumps\\Init::run"
+    }
+}

@@ -1,0 +1,4 @@
+/app/build/*
+/app/frontend/node_modules/*
+/app/frontend/dist/*
+/php/vendor/*
