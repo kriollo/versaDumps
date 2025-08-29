@@ -21,8 +21,19 @@
         >
           <Icon name="trash" />
         </button>
-        <button class="icon-button" @click="toggleTheme" title="Toggle Theme">
+        <button
+          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          @click="toggleTheme"
+          title="Toggle Theme"
+        >
           <Icon :name="theme === 'dark' ? 'sun' : 'moon'" />
+        </button>
+        <button
+          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          @click="openConfigModal"
+          title="Settings"
+        >
+          <Icon name="gear" />
         </button>
       </div>
     </div>
@@ -38,6 +49,8 @@
         @delete="deleteLog(log.id)"
       />
     </div>
+
+    <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" />
   </main>
 </template>
 
@@ -46,6 +59,7 @@ import { computed, onMounted, ref } from "vue";
 import { EventsOn } from "../wailsjs/runtime";
 import Icon from "./components/Icon.vue";
 import LogItem from "./components/LogItem.vue";
+import ConfigModal from "./components/ConfigModal.vue";
 
 // THEME
 const theme = ref("dark");
@@ -65,6 +79,15 @@ onMounted(() => {
     document.documentElement.classList.add("dark");
   }
 });
+
+// CONFIG MODAL
+const isConfigModalOpen = ref(false);
+const openConfigModal = () => {
+  isConfigModalOpen.value = true;
+};
+const closeConfigModal = () => {
+  isConfigModalOpen.value = false;
+};
 
 // LOGS
 const logs = ref([]);

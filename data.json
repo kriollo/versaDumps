@@ -1,5 +1,0 @@
-{
-  "modo": "info",
-  "message": "Prueba desde un archivo JSON",
-  "context": "{\"cliente\":\"ACME Corp\",\"id_pedido\":7412,\"items\":[{\"producto\":\"Cohete\",\"cantidad\":2},{\"producto\":\"Yunque\",\"cantidad\":10}],\"urgente\":true}"
-}
