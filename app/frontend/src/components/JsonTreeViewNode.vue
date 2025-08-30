@@ -4,14 +4,14 @@
       <span v-if="isObject" class="absolute -left-4 top-0.5 text-slate-500 transition-transform duration-100" :class="{ 'rotate-90': isExpanded }">►</span>
       <span class="text-slate-800 dark:text-slate-400">"{{ nodeKey }}":&nbsp;</span>
       <span v-if="isObject" class="text-slate-500 italic">{{ objectType }}({{ entries }})</span>
-      <span v-else :class="valueClass">{{ formattedValue }}</span>
+  <span v-else :class="valueClass">{{ formattedValue }}<span v-if="showTypes && !isObject" class="ml-2 text-xs text-slate-400">({{ valueType }})</span></span>
     </div>
     <JsonTreeView v-if="isObject && isExpanded" :json-data="nodeValue" />
   </li>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 import JsonTreeView from './JsonTreeView.vue';
 
 const props = defineProps({
@@ -31,6 +31,21 @@ const isObject = computed(() => typeof props.nodeValue === 'object' && props.nod
 const objectType = computed(() => (Array.isArray(props.nodeValue) ? 'Array' : 'Object'));
 const entries = computed(() => (isObject.value ? Object.keys(props.nodeValue).length : 0));
 const formattedValue = computed(() => JSON.stringify(props.nodeValue));
+
+// show types toggle (leer desde localStorage para rendimiento)
+const showTypes = ref(false);
+try {
+  const v = localStorage.getItem('show_types');
+  if (v !== null) {
+    showTypes.value = v === 'true';
+  }
+} catch (e) {}
+
+const valueType = computed(() => {
+  if (props.nodeValue === null) return 'null';
+  if (Array.isArray(props.nodeValue)) return 'Array';
+  return typeof props.nodeValue;
+});
 
 const valueClass = computed(() => {
     const type = typeof props.nodeValue;

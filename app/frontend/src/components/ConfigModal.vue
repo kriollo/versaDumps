@@ -19,6 +19,26 @@
           </select>
         </div>
 
+        <!-- Mostrar tipos de variable (toggle moderno) -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <label for="showTypes" class="text-sm text-slate-700 dark:text-slate-300">{{ t('show_variable_types') }}</label>
+            <p class="text-xs text-slate-400">{{ selectedShowTypes ? 'On' : 'Off' }}</p>
+          </div>
+          <button
+            id="showTypes"
+            @click="selectedShowTypes = !selectedShowTypes"
+            :aria-pressed="selectedShowTypes.toString()"
+            class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none"
+            :class="selectedShowTypes ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'"
+          >
+            <span
+              class="inline-block w-4 h-4 bg-white rounded-full transform transition-transform"
+              :style="{ transform: selectedShowTypes ? 'translateX(20px)' : 'translateX(2px)' }"
+            ></span>
+          </button>
+        </div>
+
         <!-- Botones de acción -->
         <div class="flex justify-end gap-2 pt-4">
           <button
@@ -40,9 +60,10 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref } from 'vue';
-import Icon from './Icon.vue';
+import { defineEmits, defineProps, ref } from 'vue';
+import * as BackendApp from '../../wailsjs/go/main/App';
 import { currentLanguage, setLanguage, t } from '../i18n';
+import Icon from './Icon.vue';
 
 const props = defineProps({
   isOpen: {
@@ -55,16 +76,37 @@ const emit = defineEmits(['close']);
 
 // Idioma seleccionado (inicialmente el actual)
 const selectedLanguage = ref(currentLanguage.value);
+// Mostrar tipos (inicialmente false, se actualizará en mounted si backend devuelve valor)
+const selectedShowTypes = ref(false);
 
 const closeModal = () => {
   // Restaurar el idioma seleccionado al actual si se cierra sin guardar
   selectedLanguage.value = currentLanguage.value;
-  emit('close');
+  emit('close', { action: 'closed'});
 };
 
 const saveSettings = () => {
   // Guardar el idioma seleccionado
   setLanguage(selectedLanguage.value);
-  emit('close');
+  // Persistir en config.yml via backend
+  try {
+  BackendApp.SaveFrontendConfig({ language: selectedLanguage.value, show_types: selectedShowTypes.value ? 'true' : 'false' });
+  // Also persist locally for immediate UI use
+  try { localStorage.setItem('show_types', selectedShowTypes.value ? 'true' : 'false'); } catch (e) {}
+  } catch (e) {
+    // ignore
+  }
+  emit('close', { action: 'saved' });
 };
+
+// Obtener valore iniciales desde backend si está disponible
+try {
+  BackendApp.GetConfig().then((cfg) => {
+    if (cfg) {
+      if (typeof cfg.ShowTypes !== 'undefined') {
+        selectedShowTypes.value = !!cfg.ShowTypes;
+      }
+    }
+  }).catch(()=>{});
+} catch (e) {}
 </script>

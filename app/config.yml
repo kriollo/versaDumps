@@ -1,2 +1,4 @@
-server: "localhost"
+server: localhost
 port: 9191
+language: es
+show_types: true
