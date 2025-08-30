@@ -87,5 +87,10 @@ func (a *App) UpdateVisibleCount(count int) error {
 	if a.ctx != nil {
 		runtime.WindowSetTitle(a.ctx, fmt.Sprintf("VersaDumps Visualizer (%d)", a.messageCounter))
 	}
+	// Update platform-specific taskbar/tray badge if available
+	SetTaskbarBadge(a.ctx, a.messageCounter)
 	return nil
 }
+
+// Implementations for SetTaskbarBadge are platform-specific and live in
+// files guarded by build tags (badge_windows.go, badge_darwin.go, badge_unix.go).

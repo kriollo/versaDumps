@@ -19,8 +19,8 @@
 
 <script setup>
 import { computed } from 'vue';
-import JsonTreeView from './JsonTreeView.vue';
 import Icon from './Icon.vue';
+import JsonTreeView from './JsonTreeView.vue';
 
 const props = defineProps({
   log: {
@@ -33,14 +33,33 @@ defineEmits(['delete']);
 
 const timestamp = computed(() => new Date(props.log.id).toLocaleTimeString());
 
-const parsedContext = computed(() => {
-  if (!props.log.context) return null;
-  try {
-    return JSON.parse(props.log.context);
-  } catch (e) {
-    return { error: "Malformed JSON", original_context: props.log.context };
+const parseContext = (ctx) => {
+  // If already an object/array, return as-is
+  if (ctx !== null && typeof ctx === 'object') return ctx
+
+  // If it's a string, try to parse JSON, otherwise return original string
+  if (typeof ctx === 'string') {
+    const trimmed = ctx.trim()
+    // Fast-path: if looks like JSON object/array, attempt parse
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        return JSON.parse(trimmed)
+      } catch (e) {
+        return { error: 'Malformed JSON', original_context: ctx }
+      }
+    }
+    // Not JSON - return the raw string so UI can show it plainly
+    return ctx
   }
-});
+
+  // Unknown type - return as-is wrapped for safety
+  return { error: 'Unsupported context type', original_context: String(ctx) }
+}
+
+const parsedContext = computed(() => {
+  if (!props.log.context) return null
+  return parseContext(props.log.context)
+})
 
 // A simple hashing function to get a consistent color for a given file path
 const stringToHslColor = (str, s, l) => {
