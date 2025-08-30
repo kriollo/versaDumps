@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function GetConfig():Promise<main.Config>;
 
+export function GetVisibleCount():Promise<number>;
+
 export function SaveFrontendConfig(arg1:Record<string, string>):Promise<void>;
 
 export function UpdateVisibleCount(arg1:number):Promise<void>;

@@ -11,7 +11,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import JsonTreeView from './JsonTreeView.vue';
 
 const props = defineProps({
@@ -40,6 +40,18 @@ try {
     showTypes.value = v === 'true';
   }
 } catch (e) {}
+
+// React to global changes emitted from ConfigModal
+let handler = null;
+onMounted(() => {
+  handler = (ev) => {
+    try { showTypes.value = !!ev.detail.value; } catch (e) {}
+  };
+  window.addEventListener('show_types_changed', handler);
+});
+onUnmounted(() => {
+  try { window.removeEventListener('show_types_changed', handler); } catch (e) {}
+});
 
 const valueType = computed(() => {
   if (props.nodeValue === null) return 'null';

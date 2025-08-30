@@ -100,16 +100,15 @@ onMounted(() => {
     }).catch(()=>{})
   } catch (e) {}
 
-  // Initialize logs with some test data if none is received
-  setTimeout(() => {
-    if (logs.value.length === 0) {
-      logs.value.push({
-        id: Date.now(),
-        frame: { file: "Example.js", line: 42, function: "testFunction" },
-        context: "This is a test log to show how the visualizer works"
-      });
-    }
-  }, 2000);
+    // Ask backend for current visible count and sync UI/title
+    try {
+      if (BackendApp.GetVisibleCount) {
+        BackendApp.GetVisibleCount().then((cnt) => {
+          try { BackendApp.UpdateVisibleCount(cnt); } catch (e) {}
+          // Ensure badge UI matches (we don't have the actual logs list here, but set title via backend)
+        }).catch(()=>{});
+      }
+    } catch (e) {}
 });
 
 // CONFIG MODAL

@@ -38,6 +38,16 @@ func (a *App) startup(ctx context.Context) {
 
 	// Start the background HTTP server, passing the app instance
 	StartServer(ctx, cfg.Server, cfg.Port, a)
+
+	// Initialize window title with current counter
+	if a.ctx != nil {
+		runtime.WindowSetTitle(a.ctx, fmt.Sprintf("VersaDumps Visualizer (%d)", a.messageCounter))
+	}
+}
+
+// GetVisibleCount returns the current visible message count
+func (a *App) GetVisibleCount() int {
+	return a.messageCounter
 }
 
 // GetConfig returns the current configuration (callable from frontend)

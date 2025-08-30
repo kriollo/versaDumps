@@ -6,6 +6,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetVisibleCount() {
+  return window['go']['main']['App']['GetVisibleCount']();
+}
+
 export function SaveFrontendConfig(arg1) {
   return window['go']['main']['App']['SaveFrontendConfig'](arg1);
 }

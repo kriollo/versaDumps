@@ -60,7 +60,7 @@
 </template>
 
 <script setup>
-import { defineEmits, defineProps, ref } from 'vue';
+import { defineEmits, defineProps, ref, watch } from 'vue';
 import * as BackendApp from '../../wailsjs/go/main/App';
 import { currentLanguage, setLanguage, t } from '../i18n';
 import Icon from './Icon.vue';
@@ -98,6 +98,14 @@ const saveSettings = () => {
   }
   emit('close', { action: 'saved' });
 };
+
+// Emitir evento global al cambiar el toggle para que otros componentes reaccionen sin recargar
+watch(selectedShowTypes, (val) => {
+  try { localStorage.setItem('show_types', val ? 'true' : 'false'); } catch (e) {}
+  try {
+    window.dispatchEvent(new CustomEvent('show_types_changed', { detail: { value: val } }));
+  } catch (e) {}
+});
 
 // Obtener valore iniciales desde backend si está disponible
 try {
