@@ -1,16 +1,31 @@
 <template>
   <div class="bg-white dark:bg-slate-900 shadow-md rounded-lg p-3.5 border-l-4" :class="borderColor">
-    <div class="flex items-center gap-3">
+    <div class="flex justify-between">
       <!-- Frame Info -->
-      <div class="flex-grow font-mono text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-        <span class="font-semibold text-green-600 dark:text-green-500">{{ log.frame.function }}()</span>
-        <span class="text-slate-500 dark:text-slate-400 ml-2">@ {{ log.frame.file }}:{{ log.frame.line }}</span>
+      <div class="flex flex-col font-mono text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+        <p>
+          <a
+            href="#"
+            @click.prevent="openInEditor"
+            class="text-slate-500 dark:text-slate-400 hover:underline hover:text-blue-600"
+            title="Open in editor"
+          >
+            {{ log.frame.file }}:{{ log.frame.line }}
+          </a>
+        </p>
+        <p>
+          <span class="font-semibold text-green-600 dark:text-green-500">{{ log.frame.function }}()</span>
+        </p>
       </div>
       <!-- Timestamp and Delete Button -->
-      <span class="text-xs text-slate-400 dark:text-slate-500">{{ timestamp }}</span>
-      <button class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" @click="$emit('delete')" title="Delete Log">
-        <Icon name="delete" />
-      </button>
+      <div class="flex flex-col content-end items-end font-mono text-xs overflow-hidden whitespace-nowrap text-ellipsis">
+        <p>
+          <button class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" @click="$emit('delete')" title="Delete Log">
+            <Icon name="delete" />
+          </button>
+        </p>
+        <span class="text-xs text-slate-400 dark:text-slate-500">{{ timestamp }}</span>
+      </div>
     </div>
     <!-- Context Tree View -->
     <JsonTreeView v-if="parsedContext" :json-data="parsedContext" />
@@ -19,6 +34,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import * as BackendApp from '../../wailsjs/go/main/App';
 import Icon from './Icon.vue';
 import JsonTreeView from './JsonTreeView.vue';
 
@@ -75,5 +91,24 @@ const borderColor = computed(() => {
     const color = stringToHslColor(props.log.frame.file, 50, 60);
     return `border-color: ${color}`;
 });
+
+// Attempt to open the file in the user's editor. Use generated BackendApp if present,
+// otherwise fall back to calling the wails bridge directly.
+const openInEditor = async () => {
+  const path = props.log.frame.file;
+  const line = props.log.frame.line || 1;
+  try {
+    if (BackendApp && typeof BackendApp.OpenInEditor === 'function') {
+      await BackendApp.OpenInEditor(path, line);
+    } else if (window && window['go'] && window['go']['main'] && window['go']['main']['App'] && typeof window['go']['main']['App']['OpenInEditor'] === 'function') {
+      window['go']['main']['App']['OpenInEditor'](path, line);
+    } else {
+      // last resort: try to open via URI (may not work in wails context)
+      console.warn('OpenInEditor not available');
+    }
+  } catch (e) {
+    console.error('Failed to open editor', e);
+  }
+};
 
 </script>

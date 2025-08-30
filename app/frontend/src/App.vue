@@ -4,9 +4,11 @@
       class="sticky top-0 z-10 flex items-center justify-between p-2.5 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm"
     >
       <h1 class="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-        <span>VersaDumps Visualizer</span>
+        <span>VersaDumpsVisualizer <small>v.0.1.0</small></span>
         <span v-if="logs.length > 0" class="inline-flex items-center justify-center bg-red-600 text-white text-xs font-semibold rounded-full w-6 h-6">{{ logs.length }}</span>
+
       </h1>
+      <!--Buttons-->
       <div class="flex items-center gap-2">
         <button
           class="icon-button"
@@ -38,10 +40,17 @@
         </button>
       </div>
     </div>
+    <LineHr />
 
     <div class="p-2.5 space-y-2.5">
       <div v-if="logs.length === 0" class="text-center py-10 text-slate-500">
         <p>{{ t('waiting_data') }}</p>
+        <div class="mt-4">
+            <div class="mx-auto w-full max-w-2xl h-64 md:h-80 lg:h-96 relative">
+              <img src="./assets/images/versaDumpsVisualizer.webp" alt="versaDumpVisualizer" class="block w-full h-full object-contain" />
+              <img src="./assets/images/texture.svg" alt="" class="pointer-events-none absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-80" />
+            </div>
+        </div>
       </div>
       <LogItem
         v-for="log in sortedLogs"
@@ -61,6 +70,7 @@ import * as BackendApp from "../wailsjs/go/main/App";
 import { EventsOn, WindowIsMinimised } from "../wailsjs/runtime/runtime";
 import ConfigModal from "./components/ConfigModal.vue";
 import Icon from "./components/Icon.vue";
+import LineHr from "./components/lineHr.vue";
 import LogItem from "./components/LogItem.vue";
 import { setLanguage, t } from "./i18n";
 

@@ -1,10 +1,10 @@
 <template>
   <li class="relative">
-    <div class="inline-flex items-baseline cursor-pointer" @click="toggle">
+    <div class="inline-flex items-baseline cursor-pointer w-full" @click="toggle">
       <span v-if="isObject" class="absolute -left-4 top-0.5 text-slate-500 transition-transform duration-100" :class="{ 'rotate-90': isExpanded }">►</span>
-      <span class="text-slate-800 dark:text-slate-400">"{{ nodeKey }}":&nbsp;</span>
+      <span class="text-slate-800 dark:text-slate-400 break-words">"{{ nodeKey }}":&nbsp;</span>
       <span v-if="isObject" class="text-slate-500 italic">{{ objectType }}({{ entries }})</span>
-  <span v-else :class="valueClass">{{ formattedValue }}<span v-if="showTypes && !isObject" class="ml-2 text-xs text-slate-400">({{ valueType }})</span></span>
+  <span v-else :class="valueClass"><span class="break-words">{{ formattedValue }}</span><span v-if="showTypes && !isObject" class="ml-2 text-xs text-slate-400">({{ valueType }})</span></span>
     </div>
     <JsonTreeView v-if="isObject && isExpanded" :json-data="nodeValue" />
   </li>

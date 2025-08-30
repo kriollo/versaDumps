@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	gosys "runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -90,6 +92,39 @@ func (a *App) UpdateVisibleCount(count int) error {
 	// Update platform-specific taskbar/tray badge if available
 	SetTaskbarBadge(a.ctx, a.messageCounter)
 	return nil
+}
+
+// OpenInEditor attempts to open a file at a specific line in the user's editor.
+// It prefers VS Code (code -g file:line) if available, otherwise falls back to
+// the platform default opener (start/open/xdg-open).
+func (a *App) OpenInEditor(path string, line int) error {
+	if path == "" {
+		return fmt.Errorf("empty path")
+	}
+
+	// Prefer VS Code if available
+	// code -g file:line
+	codeCmd := "code"
+	arg := fmt.Sprintf("%s:%d", path, line)
+	if _, err := exec.LookPath(codeCmd); err == nil {
+		cmd := exec.Command(codeCmd, "-g", arg)
+		return cmd.Start()
+	}
+
+	// Fallbacks by OS
+	switch gosys.GOOS {
+	case "windows":
+		// start requires cmd /c start, but exec.Command can call 'cmd' directly
+		cmd := exec.Command("cmd", "/C", "start", "", path)
+		return cmd.Start()
+	case "darwin":
+		cmd := exec.Command("open", path)
+		return cmd.Start()
+	default:
+		// Linux and others
+		cmd := exec.Command("xdg-open", path)
+		return cmd.Start()
+	}
 }
 
 // Implementations for SetTaskbarBadge are platform-specific and live in

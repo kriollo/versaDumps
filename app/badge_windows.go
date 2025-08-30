@@ -11,7 +11,6 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"strconv"
 	"syscall"
 	"unsafe"
 
@@ -69,7 +68,8 @@ func createBadgeICO(path string, count int) error {
 			}
 		}
 	}
-	label := strconv.Itoa(count)
+	// render static label 'VD' instead of number
+	label := "VD"
 	face := basicfont.Face7x13
 	d := &fontDrawer{Dst: img, Src: image.NewUniform(color.White), Face: face}
 	txtW := len(label) * 7

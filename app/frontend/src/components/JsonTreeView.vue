@@ -1,6 +1,6 @@
 <template>
-  <div class="mt-2.5 p-2.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-xs">
-    <ul class="pl-5">
+  <div class="mt-2.5 p-2.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-xs overflow-auto">
+    <ul class="pl-5 break-words">
       <JsonTreeViewNode v-for="(value, key) in jsonData" :node-key="key" :node-value="value" :key="key" />
     </ul>
   </div>

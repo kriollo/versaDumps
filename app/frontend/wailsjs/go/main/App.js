@@ -10,6 +10,10 @@ export function GetVisibleCount() {
   return window['go']['main']['App']['GetVisibleCount']();
 }
 
+export function OpenInEditor(arg1, arg2) {
+  return window['go']['main']['App']['OpenInEditor'](arg1, arg2);
+}
+
 export function SaveFrontendConfig(arg1) {
   return window['go']['main']['App']['SaveFrontendConfig'](arg1);
 }
