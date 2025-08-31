@@ -1,6 +1,6 @@
 # VersaDumps Visualizer
 
-![VersaDumps Logo](app/build/appicon.png)
+![VersaDumps Logo](art/versaDumpsVisualizer.png)
 
 ## 📋 Descripción
 
@@ -14,6 +14,9 @@ VersaDumps Visualizer es una aplicación de escritorio para visualizar y depurar
 - 📊 Exploración interactiva de datos JSON anidados
 - 📱 Diseño responsive con enfoque mobile-first
 - 🔍 Título de ventana dinámico que muestra el número de mensajes recibidos
+
+
+![VersaDumps Logo](art/visualizerExample.png)
 
 ## 🧰 Stack tecnológico
 
@@ -62,7 +65,7 @@ La aplicación espera un payload JSON con la siguiente estructura:
     "line": 123,
     "function": "miFuncion"
   },
-  "context": "{\"clave\":\"valor\"}" 
+  "context": "{\"clave\":\"valor\"}"
 }
 ```
 
