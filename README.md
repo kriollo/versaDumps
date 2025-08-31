@@ -1,6 +1,8 @@
 # VersaDumps Visualizer
 
-![VersaDumps Logo](art/versaDumpsVisualizer.png)
+<p align="center">
+  <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" style="max-width:320px; width:100%; height:auto;" />
+</p>
 
 ## 📋 Descripción
 
@@ -16,7 +18,9 @@ VersaDumps Visualizer es una aplicación de escritorio para visualizar y depurar
 - 🔍 Título de ventana dinámico que muestra el número de mensajes recibidos
 
 
-![VersaDumps Logo](art/visualizerExample.png)
+<p align="center">
+  <img src="art/visualizerExample.png" alt="VersaDumps Logo" style="max-width:320px; width:100%; height:auto;" />
+</p>
 
 ## 🧰 Stack tecnológico
 
