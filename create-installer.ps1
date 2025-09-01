@@ -58,17 +58,17 @@ if (-not (Test-Path `$InstallPath)) {
 try {
     Copy-Item "VersaDumps.exe" "`$InstallPath\" -Force
     Write-Host "✅ Ejecutable instalado" -ForegroundColor Green
-    
+
     if (Test-Path "config.yml") {
         Copy-Item "config.yml" "`$InstallPath\" -Force
         Write-Host "✅ Archivo de configuración instalado" -ForegroundColor Green
     }
-    
+
     if (Test-Path "icon.ico") {
         Copy-Item "icon.ico" "`$InstallPath\" -Force
         Write-Host "✅ Icono instalado" -ForegroundColor Green
     }
-    
+
     # Crear acceso directo en el escritorio
     `$WshShell = New-Object -comObject WScript.Shell
     `$Shortcut = `$WshShell.CreateShortcut("`$env:USERPROFILE\Desktop\VersaDumps Visualizer.lnk")
@@ -78,7 +78,7 @@ try {
     `$Shortcut.Description = "VersaDumps Visualizer - A powerful debugging tool"
     `$Shortcut.Save()
     Write-Host "✅ Acceso directo creado en el escritorio" -ForegroundColor Green
-    
+
     # Crear entrada en el menú inicio
     `$StartMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
     `$StartShortcut = `$WshShell.CreateShortcut("`$StartMenuPath\VersaDumps Visualizer.lnk")
@@ -88,19 +88,19 @@ try {
     `$StartShortcut.Description = "VersaDumps Visualizer - A powerful debugging tool"
     `$StartShortcut.Save()
     Write-Host "✅ Entrada en menú inicio creada" -ForegroundColor Green
-    
+
     Write-Host ""
     Write-Host "🎉 ¡Instalación completada exitosamente!" -ForegroundColor Magenta
     Write-Host "📍 VersaDumps instalado en: `$InstallPath" -ForegroundColor White
     Write-Host "🖥️  Acceso directo disponible en el escritorio" -ForegroundColor White
     Write-Host ""
-    
+
     # Preguntar si ejecutar la aplicación
     `$response = Read-Host "¿Deseas ejecutar VersaDumps ahora? (s/n)"
     if (`$response -eq "s" -or `$response -eq "S") {
         Start-Process "`$InstallPath\VersaDumps.exe"
     }
-    
+
 } catch {
     Write-Error "❌ Error durante la instalación: `$(`$_.Exception.Message)"
     exit 1
@@ -168,7 +168,7 @@ Write-Host "🎉 ¡Instalador creado exitosamente!" -ForegroundColor Magenta
 Write-Host "📦 Archivo: $ZipPath" -ForegroundColor White
 Write-Host ""
 Write-Host "📋 Instrucciones para el usuario:" -ForegroundColor Cyan
-Write-Host "1. Extrae el archivo ZIP" -ForegroundColor White  
+Write-Host "1. Extrae el archivo ZIP" -ForegroundColor White
 Write-Host "2. Ejecuta 'instalar.bat' como administrador" -ForegroundColor White
 Write-Host "3. Sigue las instrucciones en pantalla" -ForegroundColor White
 Write-Host ""
