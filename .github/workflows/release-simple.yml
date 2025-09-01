@@ -33,20 +33,29 @@ jobs:
           cd app/frontend
           npm install
           cd ..
-          wails build -platform windows/amd64 -nsis=false -webview2=embed
-          mv build/bin/app.exe build/bin/versaDumps.exe
+          # Build con instalador NSIS
+          wails build -platform windows/amd64 -nsis -webview2=embed
+          # También compilar versión portable
+          wails build -platform windows/amd64 -nsis=false -webview2=embed -o versaDumps-portable.exe
           cp config.yml build/bin/
           
       - name: Package
         shell: pwsh
         run: |
           cd app/build/bin
-          Compress-Archive -Path versaDumps.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64.zip
+          # Renombrar el instalador
+          if (Test-Path "app-amd64-installer.exe") {
+            Move-Item "app-amd64-installer.exe" "../../../versaDumps-setup-amd64.exe"
+          }
+          # Crear archivo zip con la versión portable
+          Compress-Archive -Path versaDumps-portable.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64-portable.zip
           
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: versaDumps-windows-amd64.zip
+          path: |
+            versaDumps-setup-amd64.exe
+            versaDumps-windows-amd64-portable.zip
 
   build-macos:
     runs-on: macos-14
@@ -178,7 +187,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            versaDumps-windows-amd64.zip
+            versaDumps-setup-amd64.exe
+            versaDumps-windows-amd64-portable.zip
             versaDumps-macos-amd64.tar.gz
             versaDumps-linux-amd64.tar.gz
           generate_release_notes: true
