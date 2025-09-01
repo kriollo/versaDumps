@@ -36,7 +36,7 @@ jobs:
           # Build con instalador NSIS
           wails build -platform windows/amd64 -nsis -webview2=embed
           # También compilar versión portable
-          wails build -platform windows/amd64 -nsis=false -webview2=embed -o versaDumps-portable.exe
+          wails build -platform windows/amd64 -nsis=false -webview2=embed
           cp config.yml build/bin/
           
       - name: Package
@@ -44,11 +44,11 @@ jobs:
         run: |
           cd app/build/bin
           # Renombrar el instalador
-          if (Test-Path "app-amd64-installer.exe") {
-            Move-Item "app-amd64-installer.exe" "../../../versaDumps-setup-amd64.exe"
+          if (Test-Path "VersaDumps-amd64-installer.exe") {
+            Move-Item "VersaDumps-amd64-installer.exe" "../../../versaDumps-setup-amd64.exe"
           }
           # Crear archivo zip con la versión portable
-          Compress-Archive -Path versaDumps-portable.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64-portable.zip
+          Compress-Archive -Path VersaDumps.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64-portable.zip
           
       - uses: actions/upload-artifact@v4
         with:
@@ -88,14 +88,13 @@ jobs:
         run: |
           cd app/build/bin
           # En macOS, Wails crea un .app bundle
-          if [ -d "app.app" ]; then
-            mv app.app versaDumps.app
-            tar -czf ../../../versaDumps-macos-amd64.tar.gz versaDumps.app config.yml
-          elif [ -f "app" ]; then
-            mv app versaDumps
-            tar -czf ../../../versaDumps-macos-amd64.tar.gz versaDumps config.yml
+          if [ -d "VersaDumps.app" ]; then
+            tar -czf ../../../versaDumps-macos-amd64.tar.gz VersaDumps.app config.yml
+          elif [ -f "VersaDumps" ]; then
+            tar -czf ../../../versaDumps-macos-amd64.tar.gz VersaDumps config.yml
           else
             echo "Error: No se encontró el ejecutable"
+            ls -la
             exit 1
           fi
           
@@ -151,13 +150,16 @@ jobs:
           npm install
           cd ..
           wails build -platform linux/amd64
-          mv build/bin/app build/bin/versaDumps
+          # Renombrar si es necesario
+          if [ -f "build/bin/app" ]; then
+            mv build/bin/app build/bin/VersaDumps
+          fi
           cp config.yml build/bin/
           
       - name: Package
         run: |
           cd app/build/bin
-          tar -czf ../../../versaDumps-linux-amd64.tar.gz versaDumps config.yml
+          tar -czf ../../../versaDumps-linux-amd64.tar.gz VersaDumps config.yml
           
       - uses: actions/upload-artifact@v4
         with:

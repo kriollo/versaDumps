@@ -62,12 +62,12 @@
 
     <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" />
     <UpdateNotification ref="updateNotificationRef" />
-    
+
     <!-- Version indicator -->
     <div class="version-indicator">
       <span class="version-text">v{{ currentVersion }}</span>
-      <button 
-        v-if="hasUpdate" 
+      <button
+        v-if="hasUpdate"
         @click="showUpdateNotification"
         class="update-badge"
         :title="t('update_available')"
@@ -91,7 +91,7 @@ import UpdateNotification from "./components/UpdateNotification.vue";
 import { setLanguage, t } from "./i18n";
 
 // VERSION AND UPDATES
-const currentVersion = ref('1.0.6');
+const currentVersion = ref('1.0.8');
 const hasUpdate = ref(false);
 const newVersion = ref('');
 const updateNotificationRef = ref(null);
@@ -298,7 +298,7 @@ const showUpdateNotification = () => {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #397111 0%, #154bb1 100%);
   color: white;
   border: none;
   border-radius: 20px;

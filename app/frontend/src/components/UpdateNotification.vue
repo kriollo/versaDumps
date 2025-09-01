@@ -7,12 +7,12 @@
           <div class="update-text">
             <h3>{{ t('update_available') }}</h3>
             <p class="update-version">
-              {{ t('new_version') }}: v{{ updateInfo.version }} 
+              {{ t('new_version') }}: v{{ updateInfo.version }}
               <span class="current-version">({{ t('current') }}: v{{ updateInfo.currentVersion }})</span>
             </p>
           </div>
         </div>
-        
+
         <div class="update-actions">
           <button @click="downloadUpdate" class="btn-update" :disabled="downloading">
             <span v-if="!downloading">{{ t('update_now') }}</span>
@@ -34,7 +34,7 @@
     <div class="modal-content">
       <h2>{{ t('update_ready') }}</h2>
       <p>{{ t('update_description') }}</p>
-      
+
       <div class="update-changelog" v-if="updateInfo.description">
         <h4>{{ t('whats_new') }}:</h4>
         <div class="changelog-content" v-html="formatChangelog(updateInfo.description)"></div>
@@ -49,11 +49,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import * as BackendApp from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
-import Icon from './Icon.vue';
 import { t } from '../i18n';
+import Icon from './Icon.vue';
 
 const updateInfo = ref(null);
 const downloading = ref(false);
@@ -65,7 +65,7 @@ const downloadedFile = ref('');
 onMounted(async () => {
   // Verificar actualizaciones después de 5 segundos
   setTimeout(checkForUpdates, 5000);
-  
+
   // Verificar cada 30 minutos
   setInterval(checkForUpdates, 30 * 60 * 1000);
 
@@ -88,7 +88,7 @@ async function checkForUpdates() {
     const info = await BackendApp.CheckForUpdates();
     if (info && info.available) {
       updateInfo.value = info;
-      
+
       // Mostrar notificación del sistema si está disponible
       if (Notification.permission === 'granted') {
         new Notification('VersaDumps', {
@@ -104,7 +104,7 @@ async function checkForUpdates() {
 
 async function downloadUpdate() {
   if (!updateInfo.value || !updateInfo.value.downloadUrl) return;
-  
+
   showConfirmModal.value = true;
 }
 
@@ -112,7 +112,7 @@ async function confirmUpdate() {
   downloading.value = true;
   downloadProgress.value = 0;
   closeModal();
-  
+
   try {
     await BackendApp.DownloadAndInstallUpdate(updateInfo.value.downloadUrl);
     // El instalador se ejecutará automáticamente con permisos de administrador
@@ -163,7 +163,7 @@ defineExpose({
   position: fixed;
   top: 60px;
   right: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #397111 0%, #154bb1 100%);
   color: white;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
@@ -222,7 +222,7 @@ defineExpose({
 
 .btn-update {
   background: white;
-  color: #667eea;
+  color: #397111;
   flex: 1;
 }
 
@@ -287,7 +287,7 @@ defineExpose({
 
 .modal-content h2 {
   margin: 0 0 15px 0;
-  color: #667eea;
+  color: #154bb1;
 }
 
 .update-changelog {
@@ -324,13 +324,13 @@ defineExpose({
 }
 
 .btn-confirm {
-  background: #667eea;
+  background: #154bb1;
   color: white;
   flex: 1;
 }
 
 .btn-confirm:hover {
-  background: #5a67d8;
+  background: #154bb1;
 }
 
 .btn-cancel {
