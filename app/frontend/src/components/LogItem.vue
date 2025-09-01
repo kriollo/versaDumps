@@ -103,11 +103,10 @@ const openInEditor = async () => {
     } else if (window && window['go'] && window['go']['main'] && window['go']['main']['App'] && typeof window['go']['main']['App']['OpenInEditor'] === 'function') {
       window['go']['main']['App']['OpenInEditor'](path, line);
     } else {
-      // last resort: try to open via URI (may not work in wails context)
-      console.warn('OpenInEditor not available');
+      // last resort: OpenInEditor not available in this context
     }
   } catch (e) {
-    console.error('Failed to open editor', e);
+    // Silently fail in production
   }
 };
 

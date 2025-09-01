@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"log"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -117,7 +116,7 @@ func (tb *ITaskbarList3) SetOverlayIcon(hwnd windows.HWND, hicon windows.Handle,
 
 // SetTaskbarBadge creates an icon with the number and sets overlay on the main window.
 func SetTaskbarBadge(ctx context.Context, count int) {
-	log.Printf("[Badge] SetTaskbarBadge called with count: %d", count)
+	// log.Printf("[Badge] SetTaskbarBadge called with count: %d", count)
 	
 	// Initialize COM
 	procCoInitializeEx.Call(0, COINIT_APARTMENTTHREADED)
@@ -126,41 +125,41 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 	// Find the window
 	hwnd := findMainWindow()
 	if hwnd == 0 {
-		log.Println("[Badge] No window found for this process")
+		// log.Println("[Badge] No window found for this process")
 		return
 	}
-	log.Printf("[Badge] Found window (hwnd: %v)", hwnd)
+	// log.Printf("[Badge] Found window (hwnd: %v)", hwnd)
 	
 	// Create ITaskbarList3
 	tb := createTaskbarList3()
 	if tb == nil {
-		log.Println("[Badge] Failed to create ITaskbarList3")
+		// log.Println("[Badge] Failed to create ITaskbarList3")
 		return
 	}
 	defer tb.Release()
 	
 	// Initialize the taskbar list
 	if err := tb.HrInit(); err != nil {
-		log.Printf("[Badge] Failed to initialize taskbar list: %v", err)
+		// log.Printf("[Badge] Failed to initialize taskbar list: %v", err)
 		return
 	}
 	
 	if count <= 0 {
 		// Clear the badge
-		log.Printf("[Badge] Clearing badge")
+		// log.Printf("[Badge] Clearing badge")
 		if err := tb.SetOverlayIcon(hwnd, 0, ""); err != nil {
-			log.Printf("[Badge] Failed to clear overlay icon: %v", err)
+			// log.Printf("[Badge] Failed to clear overlay icon: %v", err)
 		} else {
-			log.Println("[Badge] Badge cleared successfully")
+			// log.Println("[Badge] Badge cleared successfully")
 		}
 		return
 	}
 	
 	// Create badge icon
 	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("versadumps_badge_%d.ico", count))
-	log.Printf("[Badge] Creating badge icon at: %s", tmp)
+	// log.Printf("[Badge] Creating badge icon at: %s", tmp)
 	if err := createBadgeICO(tmp, count); err != nil {
-		log.Printf("[Badge] Error creating badge ICO: %v", err)
+		// log.Printf("[Badge] Error creating badge ICO: %v", err)
 		return
 	}
 	defer os.Remove(tmp)
@@ -168,18 +167,18 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 	// Load the icon
 	hicon := loadIconFromFile(tmp)
 	if hicon == 0 {
-		log.Println("[Badge] Failed to load icon from file")
+		// log.Println("[Badge] Failed to load icon from file")
 		return
 	}
 	defer destroyIcon(hicon)
-	log.Printf("[Badge] Icon loaded successfully (handle: %v)", hicon)
+	// log.Printf("[Badge] Icon loaded successfully (handle: %v)", hicon)
 	
 	// Set the overlay icon
 	desc := fmt.Sprintf("%d messages", count)
 	if err := tb.SetOverlayIcon(hwnd, hicon, desc); err != nil {
-		log.Printf("[Badge] Failed to set overlay icon: %v", err)
+		// log.Printf("[Badge] Failed to set overlay icon: %v", err)
 	} else {
-		log.Printf("[Badge] Badge set successfully with count: %d", count)
+		// log.Printf("[Badge] Badge set successfully with count: %d", count)
 	}
 }
 
@@ -194,7 +193,7 @@ func createTaskbarList3() *ITaskbarList3 {
 	)
 	
 	if ret != S_OK {
-		log.Printf("[Badge] CoCreateInstance failed with code: %x", ret)
+		// log.Printf("[Badge] CoCreateInstance failed with code: %x", ret)
 		return nil
 	}
 	

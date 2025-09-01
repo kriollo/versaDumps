@@ -6,7 +6,10 @@
       <span v-if="isObject" class="text-slate-500 italic">{{ objectType }}({{ entries }})</span>
   <span v-else :class="valueClass"><span class="break-words">{{ formattedValue }}</span><span v-if="showTypes && !isObject" class="ml-2 text-xs text-slate-400">({{ valueType }})</span></span>
     </div>
-    <JsonTreeView v-if="isObject && isExpanded" :json-data="nodeValue" />
+    <JsonTreeView v-if="isObject && isExpanded && (!shouldDeferExpansion || deferredLoaded)" :json-data="nodeValue" />
+    <div v-else-if="isObject && isExpanded && shouldDeferExpansion && !deferredLoaded" class="ml-6 mt-1 text-sm text-slate-500 italic">
+      Large object ({{ entries }} items) - Click again to load
+    </div>
   </li>
 </template>
 
@@ -25,7 +28,14 @@ const props = defineProps({
   },
 });
 
+// Auto-collapse large objects by default for better performance
 const isExpanded = ref(false);
+
+// Defer expansion for very large objects
+const shouldDeferExpansion = computed(() => {
+  if (!isObject.value) return false;
+  return entries.value > 100;
+});
 
 const isObject = computed(() => typeof props.nodeValue === 'object' && props.nodeValue !== null);
 const objectType = computed(() => (Array.isArray(props.nodeValue) ? 'Array' : 'Object'));
@@ -69,9 +79,19 @@ const valueClass = computed(() => {
     }
 });
 
+const deferredLoaded = ref(false);
+
 function toggle() {
   if (isObject.value) {
-    isExpanded.value = !isExpanded.value;
+    if (shouldDeferExpansion.value && isExpanded.value && !deferredLoaded.value) {
+      // Second click on large object - actually load it
+      deferredLoaded.value = true;
+    } else {
+      isExpanded.value = !isExpanded.value;
+      if (!isExpanded.value) {
+        deferredLoaded.value = false; // Reset when collapsing
+      }
+    }
   }
 }
 </script>
