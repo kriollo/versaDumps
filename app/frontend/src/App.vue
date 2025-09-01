@@ -4,7 +4,7 @@
       class="sticky top-0 z-10 flex items-center justify-between p-2.5 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm"
     >
       <h1 class="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-        <span>VersaDumpsVisualizer <small>v.0.1.0</small></span>
+        <span>VersaDumps Visualizer <small v-if="currentVersion">v{{ currentVersion }}</small></span>
         <span v-if="logs.length > 0" class="inline-flex items-center justify-center bg-red-600 text-white text-xs font-semibold rounded-full w-6 h-6">{{ logs.length }}</span>
 
       </h1>
@@ -91,7 +91,7 @@ import UpdateNotification from "./components/UpdateNotification.vue";
 import { setLanguage, t } from "./i18n";
 
 // VERSION AND UPDATES
-const currentVersion = ref('1.0.8');
+const currentVersion = ref(''); // Se obtiene del backend
 const hasUpdate = ref(false);
 const newVersion = ref('');
 const updateNotificationRef = ref(null);
