@@ -33,6 +33,11 @@ jobs:
           cd app/frontend
           npm install
           cd ..
+          # Asegurar que el icono está disponible
+          if [ ! -f "build/windows/icon.ico" ]; then
+            echo "Generando icono desde appicon.png"
+            powershell -Command "Add-Type -AssemblyName System.Drawing; \$png = [System.Drawing.Image]::FromFile((Get-Item 'build/appicon.png').FullName); \$bitmap = New-Object System.Drawing.Bitmap(\$png); \$iconHandle = \$bitmap.GetHicon(); \$icon = [System.Drawing.Icon]::FromHandle(\$iconHandle); \$iconStream = New-Object System.IO.FileStream('build/windows/icon.ico', [System.IO.FileMode]::Create); \$icon.Save(\$iconStream); \$iconStream.Close(); \$icon.Dispose(); \$bitmap.Dispose(); \$png.Dispose(); Write-Host 'Icono convertido exitosamente'"
+          fi
           # Build con instalador NSIS
           wails build -platform windows/amd64 -nsis -webview2=embed
           # También compilar versión portable
@@ -79,6 +84,8 @@ jobs:
           cd app/frontend
           npm install
           cd ..
+          # Asegurar que el icono está disponible para macOS
+          cp build/appicon.png build/darwin/icon.png
           wails build -platform darwin/amd64
           cp config.yml build/bin/
           echo "Contents of build/bin:"
@@ -149,6 +156,9 @@ jobs:
           cd app/frontend
           npm install
           cd ..
+          # Asegurar que el icono está disponible para Linux
+          mkdir -p build/linux
+          cp build/appicon.png build/linux/icon.png
           wails build -platform linux/amd64
           # Renombrar si es necesario
           if [ -f "build/bin/app" ]; then

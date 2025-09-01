@@ -13,8 +13,11 @@
   "info": {
     "companyName": "kriollo",
     "productName": "VersaDumps Visualizer",
-    "productVersion": "1.0.8",
+    "productVersion": "1.1.10",
     "copyright": "Copyright © 2025 kriollo",
     "comments": "VersaDumps Visualizer - A powerful debugging tool"
-  }
+  },
+  "nsisType": "multiple",
+  "obfuscated": false,
+  "garbleargs": ""
 }

@@ -97,6 +97,26 @@ La aplicación espera un payload JSON con la siguiente estructura:
 
 ## 🔧 Configuración
 
+### Configuración de Iconos
+
+Para personalizar el icono de la aplicación:
+
+1. Reemplaza `app/build/appicon.png` con tu icono (recomendado: 256x256px PNG)
+2. Ejecuta el script de configuración:
+   ```powershell
+   # En Windows
+   .\setup-icons.ps1
+   ```
+   ```bash
+   # En Unix/macOS/Linux
+   ./setup-icons.sh
+   ```
+3. Recompila la aplicación con `wails build`
+
+Para más detalles, consulta [ICONS.md](ICONS.md).
+
+### Archivo de Configuración
+
 El archivo `config.yml` permite configurar:
 
 ```yaml
