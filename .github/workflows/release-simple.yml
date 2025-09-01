@@ -38,11 +38,13 @@ jobs:
             echo "Generando icono desde appicon.png"
             powershell -Command "Add-Type -AssemblyName System.Drawing; \$png = [System.Drawing.Image]::FromFile((Get-Item 'build/appicon.png').FullName); \$bitmap = New-Object System.Drawing.Bitmap(\$png); \$iconHandle = \$bitmap.GetHicon(); \$icon = [System.Drawing.Icon]::FromHandle(\$iconHandle); \$iconStream = New-Object System.IO.FileStream('build/windows/icon.ico', [System.IO.FileMode]::Create); \$icon.Save(\$iconStream); \$iconStream.Close(); \$icon.Dispose(); \$bitmap.Dispose(); \$png.Dispose(); Write-Host 'Icono convertido exitosamente'"
           fi
+          # Crear directorio bin y copiar config.yml ANTES del build para que NSIS lo encuentre
+          mkdir -p build/bin
+          cp config.yml build/bin/config.yml
           # Build con instalador NSIS
           wails build -platform windows/amd64 -nsis -webview2=embed
           # También compilar versión portable
           wails build -platform windows/amd64 -nsis=false -webview2=embed
-          cp config.yml build/bin/
 
       - name: Package
         shell: pwsh
