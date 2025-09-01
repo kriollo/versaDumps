@@ -34,9 +34,8 @@ func StartServer(ctx context.Context, host string, port int, app *App) {
 				return
 			}
 
-			// Increment counter and update title
-			app.messageCounter++
-			runtime.WindowSetTitle(ctx, fmt.Sprintf("VersaDumps Visualizer (%d)", app.messageCounter))
+			// Don't increment counter here, let frontend handle it via UpdateVisibleCount
+			// This avoids double counting and ensures sync between frontend and backend
 
 			// Emit event to the frontend with the raw JSON string
 			runtime.EventsEmit(ctx, "newData", string(body))

@@ -84,14 +84,13 @@ func (a *App) SaveFrontendConfig(partial map[string]string) error {
 // UpdateVisibleCount updates the internal counter and window title based on the
 // number of messages currently visible in the UI. This should be called by the frontend
 // whenever logs are added/removed/cleared so the title and any OS badges remain in sync.
-func (a *App) UpdateVisibleCount(count int) error {
+func (a *App) UpdateVisibleCount(count int) {
 	a.messageCounter = count
 	if a.ctx != nil {
 		runtime.WindowSetTitle(a.ctx, fmt.Sprintf("VersaDumps Visualizer (%d)", a.messageCounter))
 	}
 	// Update platform-specific taskbar/tray badge if available
 	SetTaskbarBadge(a.ctx, a.messageCounter)
-	return nil
 }
 
 // OpenInEditor attempts to open a file at a specific line in the user's editor.
