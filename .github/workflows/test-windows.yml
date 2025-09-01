@@ -1,0 +1,68 @@
+name: Test Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - '.github/workflows/test-windows.yml'
+
+jobs:
+  test-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Wails
+        run: |
+          go version
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+          wails version
+      
+      - name: Install Dependencies
+        working-directory: app/frontend
+        run: |
+          npm install
+          npm list
+      
+      - name: Build Frontend
+        working-directory: app/frontend
+        run: npm run build
+      
+      - name: Build App
+        working-directory: app
+        run: |
+          echo "Building for Windows..."
+          wails build -clean -platform windows/amd64 -nsis=false -o versaDumps.exe
+      
+      - name: Check Build Output
+        run: |
+          dir app\build\bin
+          if (Test-Path "app\build\bin\versaDumps.exe") {
+            Write-Host "✓ Build successful!" -ForegroundColor Green
+            $size = (Get-Item "app\build\bin\versaDumps.exe").Length / 1MB
+            Write-Host "Executable size: $([math]::Round($size, 2)) MB"
+          } else {
+            Write-Host "✗ Build failed - executable not found" -ForegroundColor Red
+            exit 1
+          }
+      
+      - name: Upload Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-build
+          path: app/build/bin/versaDumps.exe
+          retention-days: 1
