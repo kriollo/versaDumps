@@ -1,4 +1,31 @@
+# Build outputs
 /app/build/*
 /app/frontend/node_modules/*
 /app/frontend/dist/*
 /php/vendor/*
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+test_*.ps1
+check_*.ps1
+*.backup
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thums.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
