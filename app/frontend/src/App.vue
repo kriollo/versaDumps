@@ -70,7 +70,7 @@ import * as BackendApp from "../wailsjs/go/main/App";
 import { EventsOn, WindowIsMinimised } from "../wailsjs/runtime/runtime";
 import ConfigModal from "./components/ConfigModal.vue";
 import Icon from "./components/Icon.vue";
-import LineHr from "./components/lineHr.vue";
+import LineHr from "./components/LineHr.vue";
 import LogItem from "./components/LogItem.vue";
 import { setLanguage, t } from "./i18n";
 
