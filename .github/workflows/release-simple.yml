@@ -114,7 +114,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          # Install all required dependencies for Wails on Ubuntu
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            build-essential \
+            pkg-config \
+            libgtk-3-0 \
+            libwebkit2gtk-4.0-37
       
       - name: Build
         run: |
