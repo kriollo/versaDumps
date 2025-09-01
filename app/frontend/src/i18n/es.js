@@ -31,5 +31,7 @@ export default {
   whats_new: 'Novedades',
   install_restart: 'Instalar y reiniciar',
   cancel: 'Cancelar',
-  update_error: 'Error al actualizar'
+  update_error: 'Error al actualizar',
+  installer_launched: 'El instalador se ha iniciado. Sigue las instrucciones para completar la actualización.',
+  admin_required: 'Se requieren permisos de administrador para instalar la actualización. Por favor, acepta el diálogo de UAC.'
 }

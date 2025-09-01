@@ -115,11 +115,22 @@ async function confirmUpdate() {
   
   try {
     await BackendApp.DownloadAndInstallUpdate(updateInfo.value.downloadUrl);
-    // El instalador se ejecutará automáticamente
-    // La aplicación actual se cerrará cuando el usuario complete la instalación
+    // El instalador se ejecutará automáticamente con permisos de administrador
+    // Mostrar mensaje al usuario
+    setTimeout(() => {
+      if (downloading.value) {
+        downloading.value = false;
+        alert(t.value('installer_launched'));
+      }
+    }, 2000);
   } catch (error) {
     downloading.value = false;
-    alert(t.value('update_error') + ': ' + error);
+    // Si el error es por permisos, mostrar mensaje específico
+    if (error.toString().includes('elevation') || error.toString().includes('admin')) {
+      alert(t.value('admin_required'));
+    } else {
+      alert(t.value('update_error') + ': ' + error);
+    }
   }
 }
 

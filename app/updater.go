@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -14,7 +13,7 @@ import (
 )
 
 // Version actual de la aplicación
-const CurrentVersion = "1.0.7"
+const CurrentVersion = "1.0.6"
 
 // GitHubRelease estructura para parsear la respuesta de GitHub API
 type GitHubRelease struct {
@@ -180,27 +179,9 @@ func (um *UpdateManager) DownloadUpdate(downloadURL string, onProgress func(down
 	return filePath, nil
 }
 
-// InstallUpdate instala la actualización descargada
-func (um *UpdateManager) InstallUpdate(filePath string) error {
-	switch runtime.GOOS {
-	case "windows":
-		// En Windows, ejecutar el instalador
-		if strings.HasSuffix(filePath, ".exe") {
-			cmd := exec.Command(filePath, "/S") // /S para instalación silenciosa con NSIS
-			return cmd.Start()
-		}
-		// Si es un zip, descomprimir (necesitaría implementación adicional)
-		return fmt.Errorf("archivo no soportado para instalación automática: %s", filePath)
-		
-	case "darwin", "linux":
-		// En Unix, extraer el tar.gz y reemplazar el ejecutable
-		// Esta es una implementación simplificada
-		return fmt.Errorf("auto-actualización no implementada aún para %s", runtime.GOOS)
-		
-	default:
-		return fmt.Errorf("sistema operativo no soportado: %s", runtime.GOOS)
-	}
-}
+// InstallUpdate está implementado en archivos específicos por plataforma:
+// - updater_windows.go para Windows
+// - updater_unix.go para Linux/macOS
 
 // progressReader implementa io.Reader con callback de progreso
 type progressReader struct {

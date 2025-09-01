@@ -31,5 +31,7 @@ export default {
   whats_new: 'What\'s new',
   install_restart: 'Install and restart',
   cancel: 'Cancel',
-  update_error: 'Update error'
+  update_error: 'Update error',
+  installer_launched: 'The installer has been launched. Follow the instructions to complete the update.',
+  admin_required: 'Administrator permissions are required to install the update. Please accept the UAC dialog.'
 }
