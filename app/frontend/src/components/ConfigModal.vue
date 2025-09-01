@@ -7,6 +7,30 @@
       <h2 class="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-200">{{ t('settings') }}</h2>
 
       <div class="space-y-4">
+        <!-- Server configuration -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ t('server') }}</label>
+          <input
+            v-model="selectedServer"
+            type="text"
+            :placeholder="t('server_placeholder')"
+            class="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+          />
+        </div>
+
+        <!-- Port configuration -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ t('port') }}</label>
+          <input
+            v-model="selectedPort"
+            type="number"
+            :placeholder="t('port_placeholder')"
+            min="1"
+            max="65535"
+            class="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+          />
+        </div>
+
         <!-- Selección de idioma -->
         <div>
           <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ t('language') }}</label>
@@ -74,6 +98,9 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
+// Configuración del servidor
+const selectedServer = ref('localhost');
+const selectedPort = ref(9191);
 // Idioma seleccionado (inicialmente el actual)
 const selectedLanguage = ref(currentLanguage.value);
 // Mostrar tipos (inicialmente false, se actualizará en mounted si backend devuelve valor)
@@ -85,17 +112,42 @@ const closeModal = () => {
   emit('close', { action: 'closed'});
 };
 
-const saveSettings = () => {
+const saveSettings = async () => {
   // Guardar el idioma seleccionado
   setLanguage(selectedLanguage.value);
+  
+  // Obtener configuración actual antes de guardar para detectar cambios
+  let currentConfig = null;
+  try {
+    currentConfig = await BackendApp.GetConfig();
+  } catch (e) {}
+  
+  // Preparar objeto de configuración
+  const config = {
+    server: selectedServer.value,
+    port: parseInt(selectedPort.value),
+    language: selectedLanguage.value,
+    show_types: selectedShowTypes.value
+  };
+  
   // Persistir en config.yml via backend
   try {
-  BackendApp.SaveFrontendConfig({ language: selectedLanguage.value, show_types: selectedShowTypes.value ? 'true' : 'false' });
-  // Also persist locally for immediate UI use
-  try { localStorage.setItem('show_types', selectedShowTypes.value ? 'true' : 'false'); } catch (e) {}
+    await BackendApp.SaveFrontendConfig(config);
+    // Also persist locally for immediate UI use
+    try { 
+      localStorage.setItem('show_types', selectedShowTypes.value ? 'true' : 'false');
+    } catch (e) {}
+    
+    // Mostrar mensaje de reinicio requerido si cambió servidor o puerto
+    if (currentConfig && 
+        (currentConfig.Server !== selectedServer.value || 
+         currentConfig.Port !== parseInt(selectedPort.value))) {
+      alert(t('restart_required'));
+    }
   } catch (e) {
-    // ignore
+    console.error('Error saving config:', e);
   }
+  
   emit('close', { action: 'saved' });
 };
 
@@ -107,10 +159,16 @@ watch(selectedShowTypes, (val) => {
   } catch (e) {}
 });
 
-// Obtener valore iniciales desde backend si está disponible
+// Obtener valores iniciales desde backend si está disponible
 try {
   BackendApp.GetConfig().then((cfg) => {
     if (cfg) {
+      if (cfg.Server) {
+        selectedServer.value = cfg.Server;
+      }
+      if (cfg.Port) {
+        selectedPort.value = cfg.Port;
+      }
       if (typeof cfg.ShowTypes !== 'undefined') {
         selectedShowTypes.value = !!cfg.ShowTypes;
       }

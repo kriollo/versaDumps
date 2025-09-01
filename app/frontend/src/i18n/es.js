@@ -11,7 +11,12 @@ export default {
   waiting_data: 'Esperando datos...',
   clear_all_logs: 'Borrar todos los logs',
   toggle_theme: 'Cambiar tema',
-    show_variable_types: 'Mostrar tipos de variable',
+  show_variable_types: 'Mostrar tipos de variable',
   sort_newest: 'Ordenar: Más recientes primero',
-  sort_oldest: 'Ordenar: Más antiguos primero'
+  sort_oldest: 'Ordenar: Más antiguos primero',
+  server: 'Servidor',
+  port: 'Puerto',
+  server_placeholder: 'Ingrese la dirección del servidor',
+  port_placeholder: 'Ingrese el número de puerto',
+  restart_required: 'Se requiere reiniciar para cambios del servidor'
 }

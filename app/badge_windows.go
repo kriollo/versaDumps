@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"math"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -96,7 +97,7 @@ func (tb *ITaskbarList3) SetOverlayIcon(hwnd windows.HWND, hicon windows.Handle,
 	if desc != "" {
 		descPtr, _ = syscall.UTF16PtrFromString(desc)
 	}
-	
+
 	ret, _, _ := syscall.Syscall6(
 		tb.vtbl.SetOverlayIcon,
 		4,
@@ -107,7 +108,7 @@ func (tb *ITaskbarList3) SetOverlayIcon(hwnd windows.HWND, hicon windows.Handle,
 		0,
 		0,
 	)
-	
+
 	if ret != S_OK {
 		return fmt.Errorf("SetOverlayIcon failed with code: %x", ret)
 	}
@@ -117,11 +118,11 @@ func (tb *ITaskbarList3) SetOverlayIcon(hwnd windows.HWND, hicon windows.Handle,
 // SetTaskbarBadge creates an icon with the number and sets overlay on the main window.
 func SetTaskbarBadge(ctx context.Context, count int) {
 	// log.Printf("[Badge] SetTaskbarBadge called with count: %d", count)
-	
+
 	// Initialize COM
 	procCoInitializeEx.Call(0, COINIT_APARTMENTTHREADED)
 	defer procCoUninitialize.Call()
-	
+
 	// Find the window
 	hwnd := findMainWindow()
 	if hwnd == 0 {
@@ -129,7 +130,7 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 		return
 	}
 	// log.Printf("[Badge] Found window (hwnd: %v)", hwnd)
-	
+
 	// Create ITaskbarList3
 	tb := createTaskbarList3()
 	if tb == nil {
@@ -137,13 +138,13 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 		return
 	}
 	defer tb.Release()
-	
+
 	// Initialize the taskbar list
 	if err := tb.HrInit(); err != nil {
 		// log.Printf("[Badge] Failed to initialize taskbar list: %v", err)
 		return
 	}
-	
+
 	if count <= 0 {
 		// Clear the badge
 		// log.Printf("[Badge] Clearing badge")
@@ -154,7 +155,7 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 		}
 		return
 	}
-	
+
 	// Create badge icon
 	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("versadumps_badge_%d.ico", count))
 	// log.Printf("[Badge] Creating badge icon at: %s", tmp)
@@ -163,7 +164,7 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 		return
 	}
 	defer os.Remove(tmp)
-	
+
 	// Load the icon
 	hicon := loadIconFromFile(tmp)
 	if hicon == 0 {
@@ -172,7 +173,7 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 	}
 	defer destroyIcon(hicon)
 	// log.Printf("[Badge] Icon loaded successfully (handle: %v)", hicon)
-	
+
 	// Set the overlay icon
 	desc := fmt.Sprintf("%d messages", count)
 	if err := tb.SetOverlayIcon(hwnd, hicon, desc); err != nil {
@@ -191,19 +192,19 @@ func createTaskbarList3() *ITaskbarList3 {
 		uintptr(unsafe.Pointer(&IID_ITaskbarList3)),
 		uintptr(unsafe.Pointer(&tb)),
 	)
-	
+
 	if ret != S_OK {
 		// log.Printf("[Badge] CoCreateInstance failed with code: %x", ret)
 		return nil
 	}
-	
+
 	return tb
 }
 
 func findMainWindow() windows.HWND {
 	pid := uint32(os.Getpid())
 	var found windows.HWND
-	
+
 	cb := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
 		var procId uint32
 		windows.GetWindowThreadProcessId(windows.HWND(hwnd), &procId)
@@ -226,7 +227,7 @@ func findMainWindow() windows.HWND {
 		}
 		return 1 // Continue enumeration
 	})
-	
+
 	windows.EnumWindows(cb, unsafe.Pointer(nil))
 	return found
 }
@@ -238,8 +239,8 @@ func loadIconFromFile(path string) windows.Handle {
 		0,
 		uintptr(unsafe.Pointer(p)),
 		IMAGE_ICON,
-		16, // width
-		16, // height
+		32, // width - 32x32 for maximum visibility
+		32, // height - 32x32 for maximum visibility
 		LR_LOADFROMFILE,
 	)
 	return windows.Handle(ret)
@@ -251,56 +252,69 @@ func destroyIcon(hicon windows.Handle) {
 }
 
 func createBadgeICO(path string, count int) error {
-	const size = 16
+	const size = 32 // 32x32 for maximum visibility
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	
+
 	// Draw transparent background
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.Transparent}, image.Point{}, draw.Src)
-	
-	// Draw red circle
-	cx, cy := size/2, size/2
-	r := size/2 - 1
+
+	// Use white background (winter white)
+	bgColor := color.RGBA{R: 255, G: 255, B: 255, A: 255} // Pure white
+
+	// Draw filled circle
+	cx, cy := float64(size)/2, float64(size)/2
+	r := float64(size)/2 - 1.0
+
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
-			dx := x - cx
-			dy := y - cy
-			if dx*dx+dy*dy <= r*r {
-				img.Set(x, y, color.RGBA{R: 220, G: 38, B: 38, A: 255})
+			dx := float64(x) + 0.5 - cx
+			dy := float64(y) + 0.5 - cy
+			dist := math.Sqrt(dx*dx + dy*dy)
+
+			if dist <= r {
+				// Inside the circle
+				img.Set(x, y, bgColor)
+			} else if dist <= r+1.0 {
+				// Antialiasing for smooth edges
+				alpha := 1.0 - (dist - r)
+				if alpha > 0 && alpha <= 1 {
+					img.Set(x, y, color.RGBA{
+						R: bgColor.R,
+						G: bgColor.G,
+						B: bgColor.B,
+						A: uint8(255 * alpha),
+					})
+				}
 			}
 		}
 	}
-	
-	// Draw the number
+
+	// Format the count
 	label := fmt.Sprintf("%d", count)
 	if count > 99 {
-		label = "99+"
+		label = "99"
 	}
-	
-	// Simple number drawing for small icon
+
+	// Black text for contrast on white background
+	textColor := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+
+	// Draw numbers with HUGE font for 32x32
 	if count < 10 {
-		// Single digit - center it
-		drawDigit(img, label[0], 6, 5, color.White)
+		// Single digit - centered with huge font
+		drawHugeDigit(img, label[0], 11, 8, textColor)
 	} else if count < 100 {
-		// Two digits
-		drawDigit(img, label[0], 3, 5, color.White)
-		drawDigit(img, label[1], 9, 5, color.White)
-	} else {
-		// 99+
-		drawDigit(img, '9', 2, 5, color.White)
-		drawDigit(img, '9', 7, 5, color.White)
-		drawPixel(img, 12, 5, color.White)
-		drawPixel(img, 13, 5, color.White)
-		drawPixel(img, 12, 7, color.White)
-		drawPixel(img, 13, 7, color.White)
+		// Two digits with better spacing
+		drawBigDigit(img, label[0], 6, 9, textColor)
+		drawBigDigit(img, label[1], 17, 9, textColor)
 	}
-	
+
 	// Save as ICO
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	
+
 	return ico.Encode(f, img)
 }
 
@@ -318,12 +332,12 @@ func drawDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
 		'8': {"111", "101", "111", "101", "111"},
 		'9': {"111", "101", "111", "001", "111"},
 	}
-	
+
 	pattern, ok := patterns[digit]
 	if !ok {
 		return
 	}
-	
+
 	for dy, row := range pattern {
 		for dx, ch := range row {
 			if ch == '1' {
@@ -339,3 +353,1552 @@ func drawPixel(img *image.RGBA, x, y int, c color.Color) {
 	}
 }
 
+// drawSimpleDigit draws simple 3x5 digits optimized for 16x16 badges
+func drawSimpleDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	// Simple 3x5 patterns that are clear at small sizes
+	switch digit {
+	case '0':
+		// Top
+		drawPixel(img, x+1, y, c)
+		// Sides
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+2, y+3, c)
+		// Bottom
+		drawPixel(img, x+1, y+4, c)
+	case '1':
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+1, y+1, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+1, y+3, c)
+		drawPixel(img, x+1, y+4, c)
+	case '2':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	case '3':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	case '4':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x+2, y+4, c)
+	case '5':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	case '6':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	case '7':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x+1, y+3, c)
+		drawPixel(img, x+1, y+4, c)
+	case '8':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	case '9':
+		drawPixel(img, x, y, c)
+		drawPixel(img, x+1, y, c)
+		drawPixel(img, x+2, y, c)
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+2, y+2, c)
+		drawPixel(img, x+2, y+3, c)
+		drawPixel(img, x, y+4, c)
+		drawPixel(img, x+1, y+4, c)
+		drawPixel(img, x+2, y+4, c)
+	}
+}
+
+// drawDigitBold draws bolder, more visible digits
+func drawDigitBold(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	// Bolder 3x5 digit patterns with thicker strokes
+	patterns := map[byte][][]byte{
+		'0': {
+			{1, 1, 1},
+			{1, 0, 1},
+			{1, 0, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+		},
+		'1': {
+			{0, 1, 0},
+			{1, 1, 0},
+			{0, 1, 0},
+			{0, 1, 0},
+			{1, 1, 1},
+		},
+		'2': {
+			{1, 1, 1},
+			{0, 0, 1},
+			{1, 1, 1},
+			{1, 0, 0},
+			{1, 1, 1},
+		},
+		'3': {
+			{1, 1, 1},
+			{0, 0, 1},
+			{1, 1, 1},
+			{0, 0, 1},
+			{1, 1, 1},
+		},
+		'4': {
+			{1, 0, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+			{0, 0, 1},
+			{0, 0, 1},
+		},
+		'5': {
+			{1, 1, 1},
+			{1, 0, 0},
+			{1, 1, 1},
+			{0, 0, 1},
+			{1, 1, 1},
+		},
+		'6': {
+			{1, 1, 1},
+			{1, 0, 0},
+			{1, 1, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+		},
+		'7': {
+			{1, 1, 1},
+			{0, 0, 1},
+			{0, 1, 0},
+			{0, 1, 0},
+			{0, 1, 0},
+		},
+		'8': {
+			{1, 1, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+		},
+		'9': {
+			{1, 1, 1},
+			{1, 0, 1},
+			{1, 1, 1},
+			{0, 0, 1},
+			{1, 1, 1},
+		},
+	}
+
+	pattern, ok := patterns[digit]
+	if !ok {
+		return
+	}
+
+	// Draw with double thickness for better visibility
+	for dy, row := range pattern {
+		for dx, pixel := range row {
+			if pixel == 1 {
+				// Draw main pixel
+				drawPixel(img, x+dx, y+dy, c)
+				// Add outline for better visibility (optional)
+				// This makes the digits slightly bolder
+				if dy > 0 && pattern[dy-1][dx] == 0 {
+					// Top edge
+				}
+				if dy < len(pattern)-1 && pattern[dy+1][dx] == 0 {
+					// Bottom edge
+				}
+			}
+		}
+	}
+}
+
+// drawDigitLarge draws larger, more prominent digits for single numbers
+func drawDigitLarge(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	// Larger 5x7 digit patterns for better visibility
+	patterns := map[byte][][]byte{
+		'0': {
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 1, 1},
+			{1, 0, 0, 0, 1},
+			{1, 0, 0, 0, 1},
+			{1, 0, 0, 0, 1},
+			{1, 1, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+		},
+		'1': {
+			{0, 0, 1, 0, 0},
+			{0, 1, 1, 0, 0},
+			{1, 0, 1, 0, 0},
+			{0, 0, 1, 0, 0},
+			{0, 0, 1, 0, 0},
+			{0, 0, 1, 0, 0},
+			{1, 1, 1, 1, 1},
+		},
+		'2': {
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 1, 1},
+			{0, 0, 0, 1, 1},
+			{0, 0, 1, 1, 0},
+			{0, 1, 1, 0, 0},
+			{1, 1, 0, 0, 0},
+			{1, 1, 1, 1, 1},
+		},
+		'3': {
+			{1, 1, 1, 1, 0},
+			{0, 0, 0, 1, 1},
+			{0, 0, 0, 1, 0},
+			{0, 1, 1, 1, 0},
+			{0, 0, 0, 1, 1},
+			{0, 0, 0, 1, 1},
+			{1, 1, 1, 1, 0},
+		},
+		'4': {
+			{0, 0, 1, 1, 0},
+			{0, 1, 0, 1, 0},
+			{1, 0, 0, 1, 0},
+			{1, 1, 1, 1, 1},
+			{0, 0, 0, 1, 0},
+			{0, 0, 0, 1, 0},
+			{0, 0, 0, 1, 0},
+		},
+		'5': {
+			{1, 1, 1, 1, 1},
+			{1, 0, 0, 0, 0},
+			{1, 1, 1, 1, 0},
+			{0, 0, 0, 1, 1},
+			{0, 0, 0, 0, 1},
+			{1, 0, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+		},
+		'6': {
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 0, 0},
+			{1, 0, 0, 0, 0},
+			{1, 1, 1, 1, 0},
+			{1, 0, 0, 1, 1},
+			{1, 1, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+		},
+		'7': {
+			{1, 1, 1, 1, 1},
+			{0, 0, 0, 1, 1},
+			{0, 0, 0, 1, 0},
+			{0, 0, 1, 0, 0},
+			{0, 0, 1, 0, 0},
+			{0, 1, 0, 0, 0},
+			{0, 1, 0, 0, 0},
+		},
+		'8': {
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 1, 1},
+			{1, 1, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 1, 1},
+			{1, 1, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+		},
+		'9': {
+			{0, 1, 1, 1, 0},
+			{1, 1, 0, 1, 1},
+			{1, 1, 0, 0, 1},
+			{0, 1, 1, 1, 1},
+			{0, 0, 0, 0, 1},
+			{0, 0, 0, 1, 1},
+			{0, 1, 1, 1, 0},
+		},
+	}
+
+	pattern, ok := patterns[digit]
+	if !ok {
+		return
+	}
+
+	for dy, row := range pattern {
+		for dx, pixel := range row {
+			if pixel == 1 {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	}
+}
+
+// drawDigitMedium draws medium-sized digits for double-digit numbers
+func drawDigitMedium(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	// Medium 4x6 digit patterns
+	patterns := map[byte][][]byte{
+		'0': {
+			{1, 1, 1, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+		'1': {
+			{0, 1, 1, 0},
+			{1, 1, 1, 0},
+			{0, 1, 1, 0},
+			{0, 1, 1, 0},
+			{0, 1, 1, 0},
+			{1, 1, 1, 1},
+		},
+		'2': {
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 1, 1},
+			{1, 1, 1, 0},
+			{1, 0, 0, 0},
+			{1, 1, 1, 1},
+		},
+		'3': {
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+		'4': {
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 0, 1},
+		},
+		'5': {
+			{1, 1, 1, 1},
+			{1, 0, 0, 0},
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+		'6': {
+			{1, 1, 1, 1},
+			{1, 0, 0, 0},
+			{1, 1, 1, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+		'7': {
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 1, 0},
+			{0, 1, 0, 0},
+			{0, 1, 0, 0},
+			{0, 1, 0, 0},
+		},
+		'8': {
+			{1, 1, 1, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+			{1, 0, 0, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+		'9': {
+			{1, 1, 1, 1},
+			{1, 0, 0, 1},
+			{1, 1, 1, 1},
+			{0, 0, 0, 1},
+			{0, 0, 0, 1},
+			{1, 1, 1, 1},
+		},
+	}
+
+	pattern, ok := patterns[digit]
+	if !ok {
+		return
+	}
+
+	for dy, row := range pattern {
+		for dx, pixel := range row {
+			if pixel == 1 {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	}
+}
+
+// drawGiantDigit draws huge digits for single number display (16x20 pixels)
+func drawGiantDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '0':
+		// Draw a large 0
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if (dy < 4 || dy > 15) && dx >= 4 && dx < 12 { // Top and bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if (dx < 4 || dx > 11) && dy >= 4 && dy <= 15 { // Left and right sides
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '1':
+		// Draw a large 1
+		for dy := 0; dy < 20; dy++ {
+			if dy < 4 {
+				drawPixel(img, x+6, y+dy, c)
+				drawPixel(img, x+7, y+dy, c)
+				drawPixel(img, x+8, y+dy, c)
+				if dy == 3 {
+					drawPixel(img, x+4, y+dy, c)
+					drawPixel(img, x+5, y+dy, c)
+				}
+			} else if dy > 15 {
+				for dx := 2; dx < 14; dx++ {
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			} else {
+				drawPixel(img, x+6, y+dy, c)
+				drawPixel(img, x+7, y+dy, c)
+				drawPixel(img, x+8, y+dy, c)
+			}
+		}
+	case '2':
+		// Draw a large 2
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 8 && dx > 11 { // Right side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 2 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 12 && dy < 16 && dx < 4 { // Left side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 16 && dx >= 2 && dx < 14 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '3':
+		// Draw a large 3
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 8 && dx > 11 { // Right side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 6 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 12 && dy < 16 && dx > 11 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 16 && dx >= 2 && dx < 14 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '4':
+		// Draw a large 4
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 8 && dx < 4 { // Left side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 0 && dx < 14 { // Middle bar
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dx > 11 { // Right side full
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '5':
+		// Draw a large 5
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 8 && dx < 4 { // Left side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 2 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 12 && dy < 16 && dx > 11 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 16 && dx >= 2 && dx < 14 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '6':
+		// Draw a large 6
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 16 && dx < 4 { // Left side
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 2 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 12 && dy < 16 && dx > 11 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 16 && dx >= 2 && dx < 14 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '7':
+		// Draw a large 7
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dx > 11 { // Right side slanted
+					if dx-dy/2 > 7 {
+						drawPixel(img, x+dx, y+dy, c)
+					}
+				}
+			}
+		}
+	case '8':
+		// Draw a large 8
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if (dy < 4 || dy > 15) && dx >= 2 && dx < 14 { // Top and bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if (dx < 4 || dx > 11) && ((dy >= 4 && dy < 8) || (dy >= 12 && dy <= 15)) { // Sides
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 2 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '9':
+		// Draw a large 9
+		for dy := 0; dy < 20; dy++ {
+			for dx := 0; dx < 16; dx++ {
+				if dy < 4 && dx >= 2 && dx < 14 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 8 && (dx < 4 || dx > 11) { // Sides top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 12 && dx >= 2 && dx < 14 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 12 && dx > 11 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 16 && dx >= 2 && dx < 14 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	}
+}
+
+// drawLargeDigit draws large digits for two-digit display (10x14 pixels)
+func drawLargeDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '0':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if (dy < 3 || dy > 10) && dx >= 2 && dx < 8 { // Top and bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if (dx < 3 || dx > 6) && dy >= 3 && dy <= 10 { // Left and right sides
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '1':
+		for dy := 0; dy < 14; dy++ {
+			if dy < 3 {
+				drawPixel(img, x+4, y+dy, c)
+				drawPixel(img, x+5, y+dy, c)
+				if dy == 2 {
+					drawPixel(img, x+3, y+dy, c)
+				}
+			} else if dy > 10 {
+				for dx := 1; dx < 9; dx++ {
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			} else {
+				drawPixel(img, x+4, y+dy, c)
+				drawPixel(img, x+5, y+dy, c)
+			}
+		}
+	case '2':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dy < 6 && dx > 6 { // Right side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 1 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 11 && dx < 3 { // Left side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 11 && dx >= 1 && dx < 9 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '3':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dy < 6 && dx > 6 { // Right side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 4 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 11 && dx > 6 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 11 && dx >= 1 && dx < 9 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '4':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 6 && dx < 3 { // Left side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 0 && dx < 9 { // Middle bar
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dx > 6 { // Right side full
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '5':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dy < 6 && dx < 3 { // Left side top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 1 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 11 && dx > 6 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 11 && dx >= 1 && dx < 9 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '6':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dy < 11 && dx < 3 { // Left side
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 1 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dy < 11 && dx > 6 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 11 && dx >= 1 && dx < 9 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '7':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dx > 6 && dx-dy/2 > 4 { // Right side slanted
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '8':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if (dy < 3 || dy > 10) && dx >= 1 && dx < 9 { // Top and bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if (dx < 3 || dx > 6) && ((dy >= 3 && dy < 6) || (dy >= 8 && dy <= 10)) { // Sides
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 1 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	case '9':
+		for dy := 0; dy < 14; dy++ {
+			for dx := 0; dx < 10; dx++ {
+				if dy < 3 && dx >= 1 && dx < 9 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 3 && dy < 6 && (dx < 3 || dx > 6) { // Sides top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dy < 8 && dx >= 1 && dx < 9 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dx > 6 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 11 && dx >= 1 && dx < 9 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	}
+}
+
+// drawMediumDigit draws medium digits (8x10 pixels)
+func drawMediumDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '9':
+		for dy := 0; dy < 10; dy++ {
+			for dx := 0; dx < 8; dx++ {
+				if dy < 2 && dx >= 1 && dx < 7 { // Top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 2 && dy < 4 && (dx < 2 || dx > 5) { // Sides top
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 4 && dy < 6 && dx >= 1 && dx < 7 { // Middle
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 6 && dx > 5 { // Right side bottom
+					drawPixel(img, x+dx, y+dy, c)
+				} else if dy >= 8 && dx >= 1 && dx < 7 { // Bottom
+					drawPixel(img, x+dx, y+dy, c)
+				}
+			}
+		}
+	}
+}
+
+// drawPlusSign draws a plus sign (6x6 pixels)
+func drawPlusSign(img *image.RGBA, x, y int, c color.Color) {
+	// Horizontal line
+	for dx := 0; dx < 6; dx++ {
+		drawPixel(img, x+dx, y+2, c)
+		drawPixel(img, x+dx, y+3, c)
+	}
+	// Vertical line
+	for dy := 0; dy < 6; dy++ {
+		drawPixel(img, x+2, y+dy, c)
+		drawPixel(img, x+3, y+dy, c)
+	}
+}
+
+// drawHugeDigit draws huge bold digits for single numbers in 32x32 badges (10x14 pixels)
+func drawHugeDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '0':
+		// Top bar with thickness
+		for dy := 0; dy < 3; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 1; dy < 13; dy++ {
+			for dx := 0; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 1; dy < 13; dy++ {
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '1':
+		// Thick vertical line
+		for dy := 0; dy < 14; dy++ {
+			for dx := 3; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top serif
+		for dx := 1; dx < 4; dx++ {
+			drawPixel(img, x+dx, y+2, c)
+			drawPixel(img, x+dx, y+3, c)
+		}
+	case '2':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side top
+		for dy := 3; dy < 6; dy++ {
+			for dx := 6; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side bottom
+		for dy := 8; dy < 11; dy++ {
+			for dx := 1; dx < 4; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '3':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side top
+		for dy := 3; dy < 6; dy++ {
+			for dx := 6; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 3; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side bottom
+		for dy := 8; dy < 11; dy++ {
+			for dx := 6; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '4':
+		// Left vertical
+		for dy := 0; dy < 8; dy++ {
+			for dx := 1; dx < 4; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right vertical
+		for dy := 0; dy < 14; dy++ {
+			for dx := 6; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '5':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 3; dy < 6; dy++ {
+			for dx := 1; dx < 4; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 8; dy < 11; dy++ {
+			for dx := 6; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 1; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '6':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 1; dy < 13; dy++ {
+			for dx := 0; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 3; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side bottom
+		for dy := 8; dy < 11; dy++ {
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '7':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 0; dx < 9; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Diagonal
+		for dy := 3; dy < 14; dy++ {
+			dx := 8 - (dy-3)/2
+			if dx >= 2 {
+				drawPixel(img, x+dx, y+dy, c)
+				drawPixel(img, x+dx-1, y+dy, c)
+				drawPixel(img, x+dx-2, y+dy, c)
+			}
+		}
+	case '8':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top sides
+		for dy := 1; dy < 6; dy++ {
+			for dx := 0; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom sides
+		for dy := 8; dy < 13; dy++ {
+			for dx := 0; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '9':
+		// Top bar
+		for dy := 0; dy < 3; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top sides
+		for dy := 1; dy < 6; dy++ {
+			for dx := 0; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 6; dy < 8; dy++ {
+			for dx := 2; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 8; dy < 13; dy++ {
+			for dx := 7; dx < 10; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 11; dy < 14; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	}
+}
+
+// drawBigDigit draws big digits for two-digit numbers in 32x32 badges (8x12 pixels)
+func drawBigDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '0':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Sides
+		for dy := 1; dy < 11; dy++ {
+			for dx := 0; dx < 2; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '1':
+		// Vertical line
+		for dy := 0; dy < 12; dy++ {
+			for dx := 3; dx < 5; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top serif
+		drawPixel(img, x+2, y+1, c)
+		drawPixel(img, x+2, y+2, c)
+	case '2':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 2; dy < 5; dy++ {
+			for dx := 5; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 7; dy < 10; dy++ {
+			for dx := 1; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '3':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side top
+		for dy := 2; dy < 5; dy++ {
+			for dx := 5; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 2; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side bottom
+		for dy := 7; dy < 10; dy++ {
+			for dx := 5; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '4':
+		// Left vertical
+		for dy := 0; dy < 7; dy++ {
+			for dx := 1; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle bar
+		for dy := 5; dy < 7; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right vertical
+		for dy := 0; dy < 12; dy++ {
+			for dx := 5; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '5':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 2; dy < 5; dy++ {
+			for dx := 1; dx < 3; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 7; dy < 10; dy++ {
+			for dx := 5; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 1; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '6':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Left side
+		for dy := 1; dy < 11; dy++ {
+			for dx := 0; dx < 2; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 2; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side bottom
+		for dy := 7; dy < 10; dy++ {
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '7':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 0; dx < 7; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Diagonal
+		for dy := 2; dy < 12; dy++ {
+			dx := 6 - (dy-2)/2
+			if dx >= 2 {
+				drawPixel(img, x+dx, y+dy, c)
+				drawPixel(img, x+dx-1, y+dy, c)
+			}
+		}
+	case '8':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top sides
+		for dy := 1; dy < 5; dy++ {
+			for dx := 0; dx < 2; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom sides
+		for dy := 7; dy < 11; dy++ {
+			for dx := 0; dx < 2; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	case '9':
+		// Top bar
+		for dy := 0; dy < 2; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Top sides
+		for dy := 1; dy < 5; dy++ {
+			for dx := 0; dx < 2; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Middle
+		for dy := 5; dy < 7; dy++ {
+			for dx := 2; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Right side
+		for dy := 7; dy < 11; dy++ {
+			for dx := 6; dx < 8; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+		// Bottom bar
+		for dy := 10; dy < 12; dy++ {
+			for dx := 2; dx < 6; dx++ {
+				drawPixel(img, x+dx, y+dy, c)
+			}
+		}
+	}
+}
+
+// drawLargerDigit draws larger digits optimized for 24x24 badges (5x9 pixels)
+func drawLargerDigit(img *image.RGBA, digit byte, x, y int, c color.Color) {
+	switch digit {
+	case '0':
+		// Top bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Left side
+		for i := 0; i < 9; i++ {
+			drawPixel(img, x, y+i, c)
+			drawPixel(img, x+1, y+i, c)
+		}
+		// Right side
+		for i := 0; i < 9; i++ {
+			drawPixel(img, x+3, y+i, c)
+			drawPixel(img, x+4, y+i, c)
+		}
+		// Bottom bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	case '1':
+		// Main vertical line
+		for i := 0; i < 9; i++ {
+			drawPixel(img, x+2, y+i, c)
+			drawPixel(img, x+3, y+i, c)
+		}
+		// Top diagonal
+		drawPixel(img, x+1, y+1, c)
+		drawPixel(img, x, y+2, c)
+	case '2':
+		// Top bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Top right
+		drawPixel(img, x+3, y+2, c)
+		drawPixel(img, x+4, y+2, c)
+		drawPixel(img, x+3, y+3, c)
+		drawPixel(img, x+4, y+3, c)
+		// Middle bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Bottom left
+		drawPixel(img, x, y+5, c)
+		drawPixel(img, x+1, y+5, c)
+		drawPixel(img, x, y+6, c)
+		drawPixel(img, x+1, y+6, c)
+		// Bottom bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	case '3':
+		// Top bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Right side top
+		drawPixel(img, x+3, y+2, c)
+		drawPixel(img, x+4, y+2, c)
+		drawPixel(img, x+3, y+3, c)
+		drawPixel(img, x+4, y+3, c)
+		// Middle bar
+		for i := 1; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Right side bottom
+		drawPixel(img, x+3, y+5, c)
+		drawPixel(img, x+4, y+5, c)
+		drawPixel(img, x+3, y+6, c)
+		drawPixel(img, x+4, y+6, c)
+		// Bottom bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	case '4':
+		// Left vertical
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x, y+i, c)
+			drawPixel(img, x+1, y+i, c)
+		}
+		// Middle bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Right vertical
+		for i := 0; i < 9; i++ {
+			drawPixel(img, x+3, y+i, c)
+			drawPixel(img, x+4, y+i, c)
+		}
+	case '5':
+		// Top bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Left side
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+1, y+3, c)
+		// Middle bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Right side
+		drawPixel(img, x+3, y+5, c)
+		drawPixel(img, x+4, y+5, c)
+		drawPixel(img, x+3, y+6, c)
+		drawPixel(img, x+4, y+6, c)
+		// Bottom bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	case '6':
+		// Top bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Left side
+		for i := 0; i < 9; i++ {
+			drawPixel(img, x, y+i, c)
+			drawPixel(img, x+1, y+i, c)
+		}
+		// Middle bar
+		for i := 2; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Right side bottom
+		drawPixel(img, x+3, y+5, c)
+		drawPixel(img, x+4, y+5, c)
+		drawPixel(img, x+3, y+6, c)
+		drawPixel(img, x+4, y+6, c)
+		// Bottom bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	case '7':
+		// Top bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Diagonal
+		drawPixel(img, x+4, y+2, c)
+		drawPixel(img, x+3, y+3, c)
+		drawPixel(img, x+3, y+4, c)
+		drawPixel(img, x+2, y+5, c)
+		drawPixel(img, x+2, y+6, c)
+		drawPixel(img, x+1, y+7, c)
+		drawPixel(img, x+1, y+8, c)
+	case '8':
+		// Top bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Top sides
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+1, y+1, c)
+		drawPixel(img, x+3, y+1, c)
+		drawPixel(img, x+4, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+3, y+2, c)
+		drawPixel(img, x+4, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+1, y+3, c)
+		drawPixel(img, x+3, y+3, c)
+		drawPixel(img, x+4, y+3, c)
+		// Middle bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Bottom sides
+		drawPixel(img, x, y+5, c)
+		drawPixel(img, x+1, y+5, c)
+		drawPixel(img, x+3, y+5, c)
+		drawPixel(img, x+4, y+5, c)
+		drawPixel(img, x, y+6, c)
+		drawPixel(img, x+1, y+6, c)
+		drawPixel(img, x+3, y+6, c)
+		drawPixel(img, x+4, y+6, c)
+		// Bottom bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+		drawPixel(img, x, y+7, c)
+		drawPixel(img, x+4, y+7, c)
+	case '9':
+		// Top bar
+		for i := 1; i < 4; i++ {
+			drawPixel(img, x+i, y, c)
+			drawPixel(img, x+i, y+1, c)
+		}
+		// Top sides
+		drawPixel(img, x, y+1, c)
+		drawPixel(img, x+1, y+1, c)
+		drawPixel(img, x+3, y+1, c)
+		drawPixel(img, x+4, y+1, c)
+		drawPixel(img, x, y+2, c)
+		drawPixel(img, x+1, y+2, c)
+		drawPixel(img, x+3, y+2, c)
+		drawPixel(img, x+4, y+2, c)
+		drawPixel(img, x, y+3, c)
+		drawPixel(img, x+1, y+3, c)
+		drawPixel(img, x+3, y+3, c)
+		drawPixel(img, x+4, y+3, c)
+		// Middle bar
+		for i := 1; i < 5; i++ {
+			drawPixel(img, x+i, y+4, c)
+		}
+		// Right side
+		drawPixel(img, x+3, y+5, c)
+		drawPixel(img, x+4, y+5, c)
+		drawPixel(img, x+3, y+6, c)
+		drawPixel(img, x+4, y+6, c)
+		// Bottom bar
+		for i := 0; i < 5; i++ {
+			drawPixel(img, x+i, y+7, c)
+			drawPixel(img, x+i, y+8, c)
+		}
+	}
+}

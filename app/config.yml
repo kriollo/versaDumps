@@ -1,4 +1,5 @@
 server: localhost
 port: 9191
-language: es
+theme: dark
+language: en
 show_types: true

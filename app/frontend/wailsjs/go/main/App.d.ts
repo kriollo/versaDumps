@@ -8,6 +8,6 @@ export function GetVisibleCount():Promise<number>;
 
 export function OpenInEditor(arg1:string,arg2:number):Promise<void>;
 
-export function SaveFrontendConfig(arg1:Record<string, string>):Promise<void>;
+export function SaveFrontendConfig(arg1:Record<string, any>):Promise<void>;
 
 export function UpdateVisibleCount(arg1:number):Promise<void>;

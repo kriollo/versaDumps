@@ -13,5 +13,10 @@ export default {
   toggle_theme: 'Toggle theme',
   show_variable_types: 'Show variable types',
   sort_newest: 'Sort: Newest first',
-  sort_oldest: 'Sort: Oldest first'
+  sort_oldest: 'Sort: Oldest first',
+  server: 'Server',
+  port: 'Port',
+  server_placeholder: 'Enter server address',
+  port_placeholder: 'Enter port number',
+  restart_required: 'Restart required for server changes'
 }

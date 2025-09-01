@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	gosys "runtime"
+	"strconv"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -25,12 +27,22 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Load config
+	// Load config (will create with defaults if it doesn't exist)
 	cfg, err := LoadConfig()
 	if err != nil {
-		runtime.LogErrorf(ctx, "Failed to load config.yml: %v", err)
-		runtime.Quit(ctx)
-		return
+		runtime.LogErrorf(ctx, "Failed to load or create config.yml: %v", err)
+		// Use fallback defaults if config creation failed
+		cfg = &Config{
+			Server:    "localhost",
+			Port:      9191,
+			Theme:     "dark",
+			Lang:      "en",
+			ShowTypes: true,
+		}
+		runtime.LogWarningf(ctx, "Using default configuration due to error")
+	} else if _, err := os.Stat("config.yml"); os.IsNotExist(err) {
+		// Config was just created with defaults
+		runtime.LogInfof(ctx, "Created config.yml with default values")
 	}
 
 	// Emit loaded config to frontend so it can initialize theme/language
@@ -58,26 +70,59 @@ func (a *App) GetConfig() (*Config, error) {
 }
 
 // SaveFrontendConfig accepts partial configuration from frontend and persists it
-func (a *App) SaveFrontendConfig(partial map[string]string) error {
+func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 	cfg, err := LoadConfig()
 	if err != nil {
 		// if config doesn't exist, start from defaults
 		cfg = &Config{Server: "localhost", Port: 9191}
 	}
-	if v, ok := partial["theme"]; ok {
-		cfg.Theme = v
-	}
-	if v, ok := partial["language"]; ok {
-		cfg.Lang = v
-	}
-	if v, ok := partial["show_types"]; ok {
-		// interpret 'true'/'false'
-		if v == "true" {
-			cfg.ShowTypes = true
-		} else {
-			cfg.ShowTypes = false
+	
+	// Handle server field
+	if v, ok := partial["server"]; ok {
+		if serverStr, ok := v.(string); ok && serverStr != "" {
+			cfg.Server = serverStr
 		}
 	}
+	
+	// Handle port field
+	if v, ok := partial["port"]; ok {
+		switch port := v.(type) {
+		case float64:
+			cfg.Port = int(port)
+		case int:
+			cfg.Port = port
+		case string:
+			// Try to parse string to int
+			if portInt, err := strconv.Atoi(port); err == nil {
+				cfg.Port = portInt
+			}
+		}
+	}
+	
+	// Handle theme field
+	if v, ok := partial["theme"]; ok {
+		if themeStr, ok := v.(string); ok {
+			cfg.Theme = themeStr
+		}
+	}
+	
+	// Handle language field
+	if v, ok := partial["language"]; ok {
+		if langStr, ok := v.(string); ok {
+			cfg.Lang = langStr
+		}
+	}
+	
+	// Handle show_types field
+	if v, ok := partial["show_types"]; ok {
+		switch showTypes := v.(type) {
+		case bool:
+			cfg.ShowTypes = showTypes
+		case string:
+			cfg.ShowTypes = (showTypes == "true")
+		}
+	}
+	
 	return SaveConfig(cfg)
 }
 

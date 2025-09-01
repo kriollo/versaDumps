@@ -16,9 +16,28 @@ type Config struct {
 }
 
 // LoadConfig reads the configuration from config.yml
+// If the file doesn't exist, it creates it with default values
 func LoadConfig() (*Config, error) {
-	// Assumes config.yml is in the same directory as the executable
-	// or in the project root during development.
+	// Check if config.yml exists
+	if _, err := os.Stat("config.yml"); os.IsNotExist(err) {
+		// Create default configuration
+		defaultConfig := &Config{
+			Server:    "localhost",
+			Port:      9191,
+			Theme:     "dark",
+			Lang:      "en",
+			ShowTypes: true,
+		}
+		
+		// Save the default configuration
+		if err := SaveConfig(defaultConfig); err != nil {
+			return nil, err
+		}
+		
+		return defaultConfig, nil
+	}
+	
+	// File exists, read it
 	f, err := os.Open("config.yml")
 	if err != nil {
 		return nil, err

@@ -1,30 +1,41 @@
 <template>
   <div class="bg-white dark:bg-slate-900 shadow-md rounded-lg p-3.5 border-l-4" :class="borderColor">
-    <div class="flex justify-between">
+    <div class="flex flex-col sm:flex-row sm:justify-between gap-2">
       <!-- Frame Info -->
-      <div class="flex flex-col font-mono text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-        <p>
+      <div class="flex flex-col font-mono text-xs flex-1 min-w-0">
+        <div class="group relative">
           <a
             href="#"
             @click.prevent="openInEditor"
-            class="text-slate-500 dark:text-slate-400 hover:underline hover:text-blue-600"
-            title="Open in editor"
+            class="text-slate-500 dark:text-slate-400 hover:underline hover:text-blue-600 block transition-all duration-200 cursor-pointer"
+            :title="`${log.frame.file}:${log.frame.line} - Click to open in editor`"
           >
-            {{ log.frame.file }}:{{ log.frame.line }}
+            <!-- Mobile view: Show only filename -->
+            <span class="sm:hidden">
+              <span class="font-medium">{{ fileName }}</span>:<span class="font-bold text-blue-600 dark:text-blue-400">{{ log.frame.line }}</span>
+            </span>
+            <!-- Desktop view: Show full path with smart truncation -->
+            <span class="hidden sm:inline-block w-full">
+              <span class="inline-block truncate hover:text-clip hover:break-all" style="max-width: calc(100% - 3rem);">
+                <span class="text-slate-400 dark:text-slate-500">{{ dirPath }}</span><span class="font-medium">{{ fileName }}</span>
+              </span>:<span class="font-bold text-blue-600 dark:text-blue-400">{{ log.frame.line }}</span>
+            </span>
           </a>
-        </p>
-        <p>
-          <span class="font-semibold text-green-600 dark:text-green-500">{{ log.frame.function }}()</span>
-        </p>
+        </div>
+        <div class="mt-1">
+          <span class="font-semibold text-green-600 dark:text-green-500 break-words sm:break-normal">{{ log.frame.function }}()</span>
+        </div>
       </div>
       <!-- Timestamp and Delete Button -->
-      <div class="flex flex-col content-end items-end font-mono text-xs overflow-hidden whitespace-nowrap text-ellipsis">
-        <p>
-          <button class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" @click="$emit('delete')" title="Delete Log">
-            <Icon name="delete" />
-          </button>
-        </p>
-        <span class="text-xs text-slate-400 dark:text-slate-500">{{ timestamp }}</span>
+      <div class="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
+        <button 
+          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 order-2 sm:order-1" 
+          @click="$emit('delete')" 
+          title="Delete Log"
+        >
+          <Icon name="delete" />
+        </button>
+        <span class="text-xs text-slate-400 dark:text-slate-500 font-mono order-1 sm:order-2 sm:mt-1">{{ timestamp }}</span>
       </div>
     </div>
     <!-- Context Tree View -->
@@ -48,6 +59,22 @@ const props = defineProps({
 defineEmits(['delete']);
 
 const timestamp = computed(() => new Date(props.log.id).toLocaleTimeString());
+
+// Extract filename from full path
+const fileName = computed(() => {
+  const path = props.log.frame.file;
+  // Handle both Windows and Unix paths
+  const parts = path.split(/[\\\/]/);
+  return parts[parts.length - 1] || path;
+});
+
+// Get directory path (everything except filename)
+const dirPath = computed(() => {
+  const path = props.log.frame.file;
+  const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (lastSlash === -1) return '';
+  return path.substring(0, lastSlash + 1);
+});
 
 const parseContext = (ctx) => {
   // If already an object/array, return as-is
