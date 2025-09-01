@@ -16,11 +16,14 @@ import (
 type App struct {
 	ctx            context.Context
 	messageCounter int
+	updateManager  *UpdateManager
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		updateManager: NewUpdateManager(),
+	}
 }
 
 // startup is called when the app starts.
@@ -169,6 +172,68 @@ func (a *App) OpenInEditor(path string, line int) error {
 		cmd := exec.Command("xdg-open", path)
 		return cmd.Start()
 	}
+}
+
+// CheckForUpdates verifica si hay una nueva versión disponible
+func (a *App) CheckForUpdates() (*UpdateInfo, error) {
+	return a.updateManager.CheckForUpdates()
+}
+
+// DownloadAndInstallUpdate descarga e instala la actualización
+func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
+	// Mostrar diálogo de progreso
+	runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+		"status": "starting",
+		"progress": 0,
+	})
+
+	// Descargar con callback de progreso
+	filePath, err := a.updateManager.DownloadUpdate(downloadURL, func(downloaded, total int64) {
+		if total > 0 {
+			progress := float64(downloaded) / float64(total) * 100
+			runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+				"status":   "downloading",
+				"progress": progress,
+				"downloaded": downloaded,
+				"total":    total,
+			})
+		}
+	})
+
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return err
+	}
+
+	// Notificar que la descarga se completó
+	runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+		"status":   "installing",
+		"progress": 100,
+	})
+
+	// Instalar la actualización
+	if err := a.updateManager.InstallUpdate(filePath); err != nil {
+		runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return err
+	}
+
+	// Notificar éxito
+	runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
+		"status": "complete",
+	})
+
+	return nil
+}
+
+// GetCurrentVersion retorna la versión actual de la aplicación
+func (a *App) GetCurrentVersion() string {
+	return CurrentVersion
 }
 
 // Implementations for SetTaskbarBadge are platform-specific and live in

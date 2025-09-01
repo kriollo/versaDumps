@@ -61,6 +61,7 @@
     </div>
 
     <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" />
+    <UpdateNotification />
   </main>
 </template>
 
@@ -72,6 +73,7 @@ import ConfigModal from "./components/ConfigModal.vue";
 import Icon from "./components/Icon.vue";
 import LineHr from "./components/LineHr.vue";
 import LogItem from "./components/LogItem.vue";
+import UpdateNotification from "./components/UpdateNotification.vue";
 import { setLanguage, t } from "./i18n";
 
 // THEME

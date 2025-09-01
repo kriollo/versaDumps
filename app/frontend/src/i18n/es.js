@@ -18,5 +18,18 @@ export default {
   port: 'Puerto',
   server_placeholder: 'Ingrese la dirección del servidor',
   port_placeholder: 'Ingrese el número de puerto',
-  restart_required: 'Se requiere reiniciar para cambios del servidor'
+  restart_required: 'Se requiere reiniciar para cambios del servidor',
+  // Actualizaciones
+  update_available: 'Actualización disponible',
+  new_version: 'Nueva versión',
+  current: 'Actual',
+  update_now: 'Actualizar ahora',
+  later: 'Más tarde',
+  downloading: 'Descargando',
+  update_ready: 'Actualización lista',
+  update_description: 'La actualización se ha descargado y está lista para instalar.',
+  whats_new: 'Novedades',
+  install_restart: 'Instalar y reiniciar',
+  cancel: 'Cancelar',
+  update_error: 'Error al actualizar'
 }

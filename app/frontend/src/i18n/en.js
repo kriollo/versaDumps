@@ -18,5 +18,18 @@ export default {
   port: 'Port',
   server_placeholder: 'Enter server address',
   port_placeholder: 'Enter port number',
-  restart_required: 'Restart required for server changes'
+  restart_required: 'Restart required for server changes',
+  // Updates
+  update_available: 'Update available',
+  new_version: 'New version',
+  current: 'Current',
+  update_now: 'Update now',
+  later: 'Later',
+  downloading: 'Downloading',
+  update_ready: 'Update ready',
+  update_description: 'The update has been downloaded and is ready to install.',
+  whats_new: 'What\'s new',
+  install_restart: 'Install and restart',
+  cancel: 'Cancel',
+  update_error: 'Update error'
 }
