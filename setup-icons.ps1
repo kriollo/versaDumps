@@ -16,7 +16,7 @@ Write-Host "✅ Archivo fuente encontrado: $AppiconPath" -ForegroundColor Green
 # Directorios
 $BuildDir = "app\build"
 $WindowsDir = "$BuildDir\windows"
-$DarwinDir = "$BuildDir\darwin" 
+$DarwinDir = "$BuildDir\darwin"
 $LinuxDir = "$BuildDir\linux"
 
 # Crear directorios si no existen
@@ -35,7 +35,7 @@ try {
     Set-Location "app\tools"
     $result = & go run convert-icon.go 2>&1
     Set-Location $originalDir
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Icono Windows generado con herramienta Go: $WindowsDir\icon.ico" -ForegroundColor Green
     } else {
@@ -44,25 +44,25 @@ try {
 } catch {
     Write-Warning "⚠️  Error generando ICO con Go: $($_.Exception.Message)"
     Write-Host "📋 Intentando con PowerShell como fallback..." -ForegroundColor Yellow
-    
+
     try {
         Add-Type -AssemblyName System.Drawing
-        
+
         $png = [System.Drawing.Image]::FromFile((Get-Item $AppiconPath).FullName)
         $bitmap = New-Object System.Drawing.Bitmap($png)
         $iconHandle = $bitmap.GetHicon()
         $icon = [System.Drawing.Icon]::FromHandle($iconHandle)
-        
+
         $iconPath = Join-Path $WindowsDir "icon.ico"
         $iconStream = New-Object System.IO.FileStream($iconPath, [System.IO.FileMode]::Create)
         $icon.Save($iconStream)
         $iconStream.Close()
-        
+
         # Limpiar recursos
         $icon.Dispose()
-        $bitmap.Dispose() 
+        $bitmap.Dispose()
         $png.Dispose()
-        
+
         Write-Host "✅ Icono Windows generado con PowerShell: $iconPath" -ForegroundColor Green
     } catch {
         Write-Warning "⚠️  Error generando ICO con PowerShell: $($_.Exception.Message)"

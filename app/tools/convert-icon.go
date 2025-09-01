@@ -4,7 +4,7 @@ import (
 	"image/png"
 	"os"
 
-	"github.com/Kodeworks/golang-image-ico"
+	ico "github.com/Kodeworks/golang-image-ico"
 )
 
 func main() {

@@ -14,18 +14,18 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
           cache-dependency-path: app/go.sum
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: app/frontend/package-lock.json
-      
+
       - name: Build
         shell: bash
         run: |
@@ -43,7 +43,7 @@ jobs:
           # También compilar versión portable
           wails build -platform windows/amd64 -nsis=false -webview2=embed
           cp config.yml build/bin/
-          
+
       - name: Package
         shell: pwsh
         run: |
@@ -54,7 +54,7 @@ jobs:
           }
           # Crear archivo zip con la versión portable
           Compress-Archive -Path VersaDumps.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64-portable.zip
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
@@ -66,18 +66,18 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
           cache-dependency-path: app/go.sum
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: app/frontend/package-lock.json
-      
+
       - name: Build
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
@@ -85,12 +85,17 @@ jobs:
           npm install
           cd ..
           # Asegurar que el icono está disponible para macOS
-          cp build/appicon.png build/darwin/icon.png
+          if [ -f "build/appicon.png" ]; then
+            cp build/appicon.png build/darwin/icon.png
+          else
+            echo "Warning: appicon.png not found, using default"
+            mkdir -p build/darwin
+          fi
           wails build -platform darwin/amd64
           cp config.yml build/bin/
           echo "Contents of build/bin:"
           ls -la build/bin/
-          
+
       - name: Package
         run: |
           cd app/build/bin
@@ -104,7 +109,7 @@ jobs:
             ls -la
             exit 1
           fi
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-build
@@ -114,24 +119,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
           cache-dependency-path: app/go.sum
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: app/frontend/package-lock.json
-      
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           # Install GTK and build tools
           sudo apt-get install -y libgtk-3-dev build-essential pkg-config
-          
+
           # Check which webkit package is available and install it
           if apt-cache search --names-only '^libwebkit2gtk-4.0-dev$' | grep -q libwebkit2gtk-4.0-dev; then
             echo "Installing libwebkit2gtk-4.0-dev"
@@ -149,7 +154,7 @@ jobs:
             apt-cache search webkit2gtk
             exit 1
           fi
-      
+
       - name: Build
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
@@ -158,19 +163,23 @@ jobs:
           cd ..
           # Asegurar que el icono está disponible para Linux
           mkdir -p build/linux
-          cp build/appicon.png build/linux/icon.png
+          if [ -f "build/appicon.png" ]; then
+            cp build/appicon.png build/linux/icon.png
+          else
+            echo "Warning: appicon.png not found, using default"
+          fi
           wails build -platform linux/amd64
           # Renombrar si es necesario
           if [ -f "build/bin/app" ]; then
             mv build/bin/app build/bin/VersaDumps
           fi
           cp config.yml build/bin/
-          
+
       - name: Package
         run: |
           cd app/build/bin
           tar -czf ../../../versaDumps-linux-amd64.tar.gz VersaDumps config.yml
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
@@ -182,19 +191,19 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/download-artifact@v4
         with:
           name: windows-build
-      
+
       - uses: actions/download-artifact@v4
         with:
           name: macos-build
-      
+
       - uses: actions/download-artifact@v4
         with:
           name: linux-build
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

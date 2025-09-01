@@ -1,5 +1,10 @@
 # Build outputs
 /app/build/*
+# Excepción para archivos de configuración importantes
+!/app/build/appicon.png
+!/app/build/windows/
+!/app/build/darwin/
+!/app/build/linux/
 /app/frontend/node_modules/*
 /app/frontend/dist/*
 /php/vendor/*
