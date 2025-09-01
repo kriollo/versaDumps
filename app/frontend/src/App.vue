@@ -61,7 +61,21 @@
     </div>
 
     <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" />
-    <UpdateNotification />
+    <UpdateNotification ref="updateNotificationRef" />
+    
+    <!-- Version indicator -->
+    <div class="version-indicator">
+      <span class="version-text">v{{ currentVersion }}</span>
+      <button 
+        v-if="hasUpdate" 
+        @click="showUpdateNotification"
+        class="update-badge"
+        :title="t('update_available')"
+      >
+        <Icon name="download" class="update-icon-small" />
+        <span>{{ t('new_version') }}: v{{ newVersion }}</span>
+      </button>
+    </div>
   </main>
 </template>
 
@@ -76,6 +90,12 @@ import LogItem from "./components/LogItem.vue";
 import UpdateNotification from "./components/UpdateNotification.vue";
 import { setLanguage, t } from "./i18n";
 
+// VERSION AND UPDATES
+const currentVersion = ref('1.0.6');
+const hasUpdate = ref(false);
+const newVersion = ref('');
+const updateNotificationRef = ref(null);
+
 // THEME
 const theme = ref("dark");
 const toggleTheme = () => {
@@ -87,12 +107,37 @@ const toggleTheme = () => {
   }
   localStorage.setItem("theme", theme.value);
 };
-onMounted(() => {
+onMounted(async () => {
   const savedTheme = localStorage.getItem("theme") || "dark";
   theme.value = savedTheme;
   if (savedTheme === "dark") {
     document.documentElement.classList.add("dark");
   }
+
+  // Get current version from backend
+  try {
+    const version = await BackendApp.GetCurrentVersion();
+    currentVersion.value = version;
+  } catch (e) {
+    console.error('Error getting version:', e);
+  }
+
+  // Check for updates periodically
+  const checkForUpdates = async () => {
+    try {
+      const updateInfo = await BackendApp.CheckForUpdates();
+      if (updateInfo && updateInfo.available) {
+        hasUpdate.value = true;
+        newVersion.value = updateInfo.version;
+      }
+    } catch (e) {
+      console.error('Error checking updates:', e);
+    }
+  };
+
+  // Check after 10 seconds and then every 30 minutes
+  setTimeout(checkForUpdates, 10000);
+  setInterval(checkForUpdates, 30 * 60 * 1000);
 
   // Try to get config from backend if available
   try {
@@ -210,10 +255,78 @@ const sortedLogs = computed(() => {
     }
   });
 });
+
+// Show update notification manually
+const showUpdateNotification = () => {
+  if (updateNotificationRef.value) {
+    updateNotificationRef.value.checkForUpdates();
+  }
+};
 </script>
 
 <style>
 .icon-button {
   @apply p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200;
+}
+
+.version-indicator {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+}
+
+.version-text {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'Courier New', monospace;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.dark .version-text {
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.update-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  animation: pulse 2s infinite;
+}
+
+.update-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.update-icon-small {
+  font-size: 14px;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+  }
 }
 </style>

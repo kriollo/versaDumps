@@ -151,6 +151,11 @@ function formatChangelog(text) {
     .replace(/- (.*?)(<br>|$)/g, '<li>$1</li>')
     .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
 }
+
+// Expose methods for parent component
+defineExpose({
+  checkForUpdates
+});
 </script>
 
 <style scoped>
