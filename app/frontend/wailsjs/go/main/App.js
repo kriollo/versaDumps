@@ -30,6 +30,10 @@ export function SaveFrontendConfig(arg1) {
   return window['go']['main']['App']['SaveFrontendConfig'](arg1);
 }
 
+export function TestUpdateCheck() {
+  return window['go']['main']['App']['TestUpdateCheck']();
+}
+
 export function UpdateVisibleCount(arg1) {
   return window['go']['main']['App']['UpdateVisibleCount'](arg1);
 }

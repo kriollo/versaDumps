@@ -32,17 +32,39 @@
   <!-- Modal de confirmación -->
   <div v-if="showConfirmModal" class="modal-overlay" @click.self="closeModal">
     <div class="modal-content">
-      <h2>{{ t('update_ready') }}</h2>
-      <p>{{ t('update_description') }}</p>
+      <!-- Si hay actualización disponible -->
+      <div v-if="updateInfo.available">
+        <h2>{{ t('update_available') }}</h2>
+        <p class="update-version-info">
+          {{ t('new_version') }}: <strong>v{{ updateInfo.version }}</strong><br>
+          {{ t('current') }}: v{{ updateInfo.currentVersion }}
+        </p>
+        <p>{{ t('update_description') }}</p>
 
-      <div class="update-changelog" v-if="updateInfo.description">
-        <h4>{{ t('whats_new') }}:</h4>
-        <div class="changelog-content" v-html="formatChangelog(updateInfo.description)"></div>
+        <div class="update-changelog" v-if="updateInfo.description">
+          <h4>{{ t('whats_new') }}:</h4>
+          <div class="changelog-content" v-html="formatChangelog(updateInfo.description)"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button @click="confirmUpdate" class="btn-confirm">{{ t('install_restart') }}</button>
+          <button @click="closeModal" class="btn-cancel">{{ t('cancel') }}</button>
+        </div>
       </div>
 
-      <div class="modal-actions">
-        <button @click="confirmUpdate" class="btn-confirm">{{ t('install_restart') }}</button>
-        <button @click="closeModal" class="btn-cancel">{{ t('cancel') }}</button>
+      <!-- Si no hay actualización disponible -->
+      <div v-else>
+        <h2>{{ t('no_updates_available') }}</h2>
+        <p class="update-version-info">
+          {{ t('current') }}: <strong>v{{ updateInfo.currentVersion }}</strong><br>
+          {{ t('latest_version') }}: v{{ updateInfo.version }}
+        </p>
+        <p>{{ t('up_to_date') }}</p>
+
+        <div class="modal-actions">
+          <button @click="confirmUpdate" class="btn-confirm btn-disabled" disabled>{{ t('install_restart') }}</button>
+          <button @click="closeModal" class="btn-cancel">{{ t('close') }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -63,11 +85,11 @@ const downloadedFile = ref('');
 
 // Verificar actualizaciones al montar
 onMounted(async () => {
-  // Verificar actualizaciones después de 5 segundos
-  setTimeout(checkForUpdates, 5000);
+  // Verificar actualizaciones después de 5 segundos (automático, sin modal)
+  setTimeout(checkForUpdatesAutomatic, 5000);
 
-  // Verificar cada 30 minutos
-  setInterval(checkForUpdates, 30 * 60 * 1000);
+  // Verificar cada 30 minutos (automático, sin modal)
+  setInterval(checkForUpdatesAutomatic, 30 * 60 * 1000);
 
   // Escuchar eventos de progreso de descarga
   EventsOn('updateDownloadProgress', (data) => {
@@ -83,9 +105,14 @@ onMounted(async () => {
   });
 });
 
-async function checkForUpdates() {
+// Verificación automática: solo muestra notificación si hay actualización
+async function checkForUpdatesAutomatic() {
+  console.log('UpdateNotification: checkForUpdatesAutomatic called');
   try {
     const info = await BackendApp.CheckForUpdates();
+    console.log('UpdateNotification: received info (automatic):', info);
+
+    // Solo procesar si hay actualización disponible
     if (info && info.available) {
       updateInfo.value = info;
 
@@ -98,7 +125,39 @@ async function checkForUpdates() {
       }
     }
   } catch (error) {
+    console.error('Error checking for updates (automatic):', error);
+  }
+}
+
+// Verificación manual: siempre muestra modal
+async function checkForUpdates() {
+  console.log('UpdateNotification: checkForUpdates called (manual)');
+  try {
+    console.log('UpdateNotification: calling BackendApp.CheckForUpdates (real API)');
+    const info = await BackendApp.CheckForUpdates();
+    console.log('UpdateNotification: received info:', info);
+
+    // Siempre almacenar la información y abrir el modal
+    updateInfo.value = info;
+    showConfirmModal.value = true;
+
+    // Solo mostrar notificación del sistema si hay actualización disponible
+    if (info && info.available && Notification.permission === 'granted') {
+      new Notification('VersaDumps', {
+        body: `${t.value('update_available')}: v${info.version}`,
+        icon: '/icon.png'
+      });
+    }
+  } catch (error) {
     console.error('Error checking for updates:', error);
+    // Si hay error, mostrar modal con información de "sin actualizaciones"
+    updateInfo.value = {
+      available: false,
+      version: "1.0.13",
+      currentVersion: "1.0.13",
+      description: "Error al verificar actualizaciones: " + error
+    };
+    showConfirmModal.value = true;
   }
 }
 
@@ -290,6 +349,31 @@ defineExpose({
   color: #154bb1;
 }
 
+.update-version-info {
+  margin: 10px 0 15px 0;
+  padding: 12px;
+  background: #f0f9ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.dark .update-version-info {
+  background: #1e3a8a;
+  border-left-color: #60a5fa;
+  color: #dbeafe;
+}
+
+.update-version-info strong {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.dark .update-version-info strong {
+  color: #93c5fd;
+}
+
 .update-changelog {
   margin: 20px 0;
   padding: 15px;
@@ -331,6 +415,22 @@ defineExpose({
 
 .btn-confirm:hover {
   background: #154bb1;
+}
+
+.btn-disabled {
+  background: #9ca3af !important;
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.btn-disabled:hover {
+  background: #9ca3af !important;
+}
+
+.dark .btn-disabled {
+  background: #4b5563 !important;
+  color: #9ca3af !important;
 }
 
 .btn-cancel {

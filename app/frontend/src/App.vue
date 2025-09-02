@@ -60,7 +60,7 @@
       />
     </div>
 
-    <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" />
+    <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" @check-updates="handleCheckUpdates" />
     <UpdateNotification ref="updateNotificationRef" />
 
     <!-- Version indicator -->
@@ -260,6 +260,17 @@ const sortedLogs = computed(() => {
 const showUpdateNotification = () => {
   if (updateNotificationRef.value) {
     updateNotificationRef.value.checkForUpdates();
+  }
+};
+
+// Handle check updates from ConfigModal
+const handleCheckUpdates = () => {
+  console.log('App: handleCheckUpdates called');
+  if (updateNotificationRef.value) {
+    console.log('App: calling updateNotificationRef.checkForUpdates');
+    updateNotificationRef.value.checkForUpdates();
+  } else {
+    console.log('App: updateNotificationRef is null');
   }
 };
 </script>

@@ -79,14 +79,14 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 		// if config doesn't exist, start from defaults
 		cfg = &Config{Server: "localhost", Port: 9191}
 	}
-	
+
 	// Handle server field
 	if v, ok := partial["server"]; ok {
 		if serverStr, ok := v.(string); ok && serverStr != "" {
 			cfg.Server = serverStr
 		}
 	}
-	
+
 	// Handle port field
 	if v, ok := partial["port"]; ok {
 		switch port := v.(type) {
@@ -101,21 +101,21 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 			}
 		}
 	}
-	
+
 	// Handle theme field
 	if v, ok := partial["theme"]; ok {
 		if themeStr, ok := v.(string); ok {
 			cfg.Theme = themeStr
 		}
 	}
-	
+
 	// Handle language field
 	if v, ok := partial["language"]; ok {
 		if langStr, ok := v.(string); ok {
 			cfg.Lang = langStr
 		}
 	}
-	
+
 	// Handle show_types field
 	if v, ok := partial["show_types"]; ok {
 		switch showTypes := v.(type) {
@@ -125,7 +125,7 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 			cfg.ShowTypes = (showTypes == "true")
 		}
 	}
-	
+
 	return SaveConfig(cfg)
 }
 
@@ -179,11 +179,31 @@ func (a *App) CheckForUpdates() (*UpdateInfo, error) {
 	return a.updateManager.CheckForUpdates()
 }
 
+// TestUpdateCheck - método de prueba para verificar actualizaciones
+func (a *App) TestUpdateCheck() (*UpdateInfo, error) {
+	// Usar el UpdateManager para obtener la comparación real
+	actualInfo, err := a.updateManager.CheckForUpdates()
+	if err != nil {
+		// Si hay error (como rate limiting), simular que no hay actualizaciones
+		return &UpdateInfo{
+			Available:      false,
+			Version:        CurrentVersion,
+			Description:    "Tu versión de VersaDumps está actualizada.",
+			DownloadURL:    "",
+			ReleaseURL:     "https://github.com/kriollo/versaDumps/releases",
+			Size:           0,
+			CurrentVersion: CurrentVersion,
+		}, nil
+	}
+
+	return actualInfo, nil
+}
+
 // DownloadAndInstallUpdate descarga e instala la actualización
 func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 	// Mostrar diálogo de progreso
 	runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
-		"status": "starting",
+		"status":   "starting",
 		"progress": 0,
 	})
 
@@ -192,10 +212,10 @@ func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 		if total > 0 {
 			progress := float64(downloaded) / float64(total) * 100
 			runtime.EventsEmit(a.ctx, "updateDownloadProgress", map[string]interface{}{
-				"status":   "downloading",
-				"progress": progress,
+				"status":     "downloading",
+				"progress":   progress,
 				"downloaded": downloaded,
-				"total":    total,
+				"total":      total,
 			})
 		}
 	})

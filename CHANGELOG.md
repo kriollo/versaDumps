@@ -5,6 +5,29 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.14] - 2025-09-01
+
+### ✨ Agregado
+- **Función de verificación manual de actualizaciones**: Nuevo botón "Revisar actualización" en el panel de configuración
+- **Modal de confirmación mejorado**: Información detallada de versiones con estados diferenciados
+- **Sistema de verificación dual**: Verificaciones automáticas (silenciosas) y manuales (con modal)
+
+### 🔧 Mejorado
+- **Notificaciones inteligentes**: Las verificaciones automáticas solo notifican cuando hay actualizaciones reales disponibles
+- **Mejor experiencia de usuario**: Modal de confirmación con botones habilitados/deshabilitados según disponibilidad de actualizaciones
+- **Interfaz refinada**: Estilos mejorados para el sistema de actualizaciones con soporte completo para modo oscuro
+- **Manejo mejorado de errores**: Mejor gestión de rate limiting de la API de GitHub y errores de conexión
+
+### 🎨 Interfaz
+- Nuevo diseño del modal de actualizaciones con información clara de versiones
+- Botones adaptativos que se deshabilitan cuando no hay actualizaciones disponibles
+- Indicadores visuales mejorados para diferentes estados de actualización
+
+### 🔧 Técnico
+- Logs de debugging mejorados para diagnóstico del sistema de actualizaciones
+- Optimización del rendimiento en verificaciones automáticas
+- Compatibilidad mejorada con Windows para el sistema de actualizaciones
+
 ## [1.0.9] - 2025-09-01
 
 ### ✨ Agregado

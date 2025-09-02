@@ -26,12 +26,16 @@ export default {
   update_now: 'Update now',
   later: 'Later',
   downloading: 'Downloading',
-  update_ready: 'Update ready',
-  update_description: 'The update has been downloaded and is ready to install.',
+  update_ready: 'Update available',
+  update_description: 'A new version of VersaDumps has been found. Do you want to download and install the update?',
   whats_new: 'What\'s new',
-  install_restart: 'Install and restart',
+  install_restart: 'Download and install',
   cancel: 'Cancel',
   update_error: 'Update error',
   installer_launched: 'The installer has been launched. Follow the instructions to complete the update.',
-  admin_required: 'Administrator permissions are required to install the update. Please accept the UAC dialog.'
+  admin_required: 'Administrator permissions are required to install the update. Please accept the UAC dialog.',
+  check_for_updates: 'Check for updates',
+  no_updates_available: 'No updates available',
+  up_to_date: 'Your application is up to date',
+  latest_version: 'You have the latest version'
 }

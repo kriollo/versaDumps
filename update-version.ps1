@@ -4,7 +4,7 @@
 param(
     [Parameter(Mandatory=$true)]
     [string]$Version,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$DryRun = $false
 )
@@ -39,6 +39,18 @@ $files = @(
         Pattern = '!define INFO_PRODUCTVERSION "\d+\.\d+\.\d+"'
         Replace = "!define INFO_PRODUCTVERSION `"$Version`""
         Description = "project.nsi (installer version)"
+    },
+    @{
+        Path = "app\frontend\package.json"
+        Pattern = '"version": "\d+\.\d+\.\d+"'
+        Replace = "`"version`": `"$Version`""
+        Description = "package.json (frontend version)"
+    },
+    @{
+        Path = "README.md"
+        Pattern = 'versaDumps v\d+\.\d+\.\d+'
+        Replace = "versaDumps v$Version"
+        Description = "README.md (documentation version)"
     }
 )
 
@@ -47,19 +59,33 @@ $errors = 0
 
 foreach ($file in $files) {
     $filePath = Join-Path $PSScriptRoot $file.Path
-    
+
     if (-not (Test-Path $filePath)) {
         Write-Host "  ⚠ No encontrado: $($file.Description)" -ForegroundColor Yellow
         continue
     }
-    
+
     try {
         $content = Get-Content $filePath -Raw
         $newContent = $content -replace $file.Pattern, $file.Replace
-        
+
         if ($content -eq $newContent) {
             Write-Host "  ○ Sin cambios: $($file.Description)" -ForegroundColor Gray
         } else {
+            # Mostrar qué línea se va a cambiar
+            $oldLines = $content -split "`n"
+            $newLines = $newContent -split "`n"
+            for ($i = 0; $i -lt $oldLines.Length; $i++) {
+                if ($oldLines[$i] -ne $newLines[$i]) {
+                    if ($DryRun) {
+                        Write-Host "  📝 $($file.Description):" -ForegroundColor Cyan
+                        Write-Host "     Antes: $($oldLines[$i].Trim())" -ForegroundColor Red
+                        Write-Host "     Después: $($newLines[$i].Trim())" -ForegroundColor Green
+                    }
+                    break
+                }
+            }
+
             if (-not $DryRun) {
                 Set-Content -Path $filePath -Value $newContent -NoNewline
             }

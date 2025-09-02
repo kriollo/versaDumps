@@ -78,6 +78,14 @@
             {{ t('save') }}
           </button>
         </div>
+
+        <!-- Sección de actualizaciones -->
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <button @click="checkUpdates" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center justify-center gap-2">
+            <Icon name="download" class="w-4 h-4" />
+            {{ t('check_for_updates') }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -96,7 +104,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'check-updates']);
 
 // Configuración del servidor
 const selectedServer = ref('localhost');
@@ -115,13 +123,13 @@ const closeModal = () => {
 const saveSettings = async () => {
   // Guardar el idioma seleccionado
   setLanguage(selectedLanguage.value);
-  
+
   // Obtener configuración actual antes de guardar para detectar cambios
   let currentConfig = null;
   try {
     currentConfig = await BackendApp.GetConfig();
   } catch (e) {}
-  
+
   // Preparar objeto de configuración
   const config = {
     server: selectedServer.value,
@@ -129,26 +137,31 @@ const saveSettings = async () => {
     language: selectedLanguage.value,
     show_types: selectedShowTypes.value
   };
-  
+
   // Persistir en config.yml via backend
   try {
     await BackendApp.SaveFrontendConfig(config);
     // Also persist locally for immediate UI use
-    try { 
+    try {
       localStorage.setItem('show_types', selectedShowTypes.value ? 'true' : 'false');
     } catch (e) {}
-    
+
     // Mostrar mensaje de reinicio requerido si cambió servidor o puerto
-    if (currentConfig && 
-        (currentConfig.Server !== selectedServer.value || 
+    if (currentConfig &&
+        (currentConfig.Server !== selectedServer.value ||
          currentConfig.Port !== parseInt(selectedPort.value))) {
       alert(t('restart_required'));
     }
   } catch (e) {
     console.error('Error saving config:', e);
   }
-  
+
   emit('close', { action: 'saved' });
+};
+
+const checkUpdates = () => {
+  console.log('ConfigModal: checkUpdates called');
+  emit('check-updates');
 };
 
 // Emitir evento global al cambiar el toggle para que otros componentes reaccionen sin recargar
