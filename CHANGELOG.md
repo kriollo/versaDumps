@@ -31,11 +31,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
   - Soporte para contextos de tipo array y object
   - Preservación del orden y estructura de datos
   - Eliminación automática de propiedades procesadas
-- **Sistema de logs mejorado**: 
+- **Sistema de logs mejorado**:
   - Logs detallados en frontend (JavaScript console)
   - Logs del backend (Go runtime logs)
   - Tracking completo del flujo de datos
-- **Sincronización de estado**: 
+- **Sincronización de estado**:
   - Verificación automática de contadores al inicio
   - Corrección proactiva de desincronizaciones
   - Manejo robusto de errores en actualización de badges
