@@ -37,5 +37,6 @@ export default {
   check_for_updates: 'Check for updates',
   no_updates_available: 'No updates available',
   up_to_date: 'Your application is up to date',
-  latest_version: 'You have the latest version'
+  latest_version: 'You have the latest version',
+  copied_to_clipboard: 'Copied to clipboard'
 }

@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	ico "github.com/Kodeworks/golang-image-ico"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/sys/windows"
 )
 
@@ -117,7 +118,7 @@ func (tb *ITaskbarList3) SetOverlayIcon(hwnd windows.HWND, hicon windows.Handle,
 
 // SetTaskbarBadge creates an icon with the number and sets overlay on the main window.
 func SetTaskbarBadge(ctx context.Context, count int) {
-	// log.Printf("[Badge] SetTaskbarBadge called with count: %d", count)
+	runtime.LogInfof(ctx, "[Badge] SetTaskbarBadge called with count: %d", count)
 
 	// Initialize COM
 	procCoInitializeEx.Call(0, COINIT_APARTMENTTHREADED)

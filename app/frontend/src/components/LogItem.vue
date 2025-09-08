@@ -28,13 +28,23 @@
       </div>
       <!-- Timestamp and Delete Button -->
       <div class="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
-        <button 
-          class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 order-2 sm:order-1" 
-          @click="$emit('delete')" 
-          title="Delete Log"
-        >
-          <Icon name="delete" />
-        </button>
+        <div>
+          <button
+            class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 order-2 sm:order-1"
+            @click="$emit('delete')"
+            title="Delete Log"
+          >
+            <Icon name="delete" />
+          </button>
+          <button
+            class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 order-2 sm:order-1"
+            @click="$emit('copy', log)"
+            title="Copy Log"
+          >
+            <Icon name="copy" />
+          </button>
+
+        </div>
         <span class="text-xs text-slate-400 dark:text-slate-500 font-mono order-1 sm:order-2 sm:mt-1">{{ timestamp }}</span>
       </div>
     </div>
@@ -56,7 +66,7 @@ const props = defineProps({
   },
 });
 
-defineEmits(['delete']);
+defineEmits(['delete', 'copy']);
 
 const timestamp = computed(() => new Date(props.log.id).toLocaleTimeString());
 

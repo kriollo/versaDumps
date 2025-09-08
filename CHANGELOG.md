@@ -5,6 +5,63 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-09-08
+
+### ✨ Agregado
+- **Sistema de etiquetas personalizadas (Labels)**: Nueva propiedad `label` en dumps de PHP que reemplaza automáticamente la primera clave del contexto
+- **Función de copia al portapapeles**: Botón de copia en cada log con notificación toast de confirmación
+- **Notificaciones toast**: Sistema de feedback visual para acciones del usuario con animaciones suaves
+- **Soporte completo para i18n**: Textos de notificaciones traducidos en español e inglés
+
+### 🔧 Mejorado
+- **Sincronización mejorada de badges**: Corrección completa del sistema de contadores entre frontend y backend
+- **Logs de debugging avanzados**: Sistema completo de logs para diagnóstico de problemas de sincronización
+- **Procesamiento inteligente de datos**: Manejo automático de arrays y objetos en el sistema de labels
+- **Gestión robusta de contadores**: Verificación y corrección automática de desincronizaciones entre UI y sistema operativo
+- **Experiencia de usuario mejorada**: Feedback inmediato para todas las acciones principales
+
+### 🎨 Interfaz
+- **Toast notifications**: Notificaciones elegantes en la esquina superior derecha con animación slide-in
+- **Iconos mejorados**: Nuevo botón de copia con icono dedicado en cada log
+- **Animaciones fluidas**: Transiciones CSS para todas las notificaciones y estados de la UI
+- **Mejor feedback visual**: Confirmaciones claras para acciones como copiar y limpiar logs
+
+### 🔧 Técnico
+- **Arquitectura de labels**: Sistema robusto para procesar etiquetas personalizadas desde PHP
+  - Soporte para contextos de tipo array y object
+  - Preservación del orden y estructura de datos
+  - Eliminación automática de propiedades procesadas
+- **Sistema de logs mejorado**: 
+  - Logs detallados en frontend (JavaScript console)
+  - Logs del backend (Go runtime logs)
+  - Tracking completo del flujo de datos
+- **Sincronización de estado**: 
+  - Verificación automática de contadores al inicio
+  - Corrección proactiva de desincronizaciones
+  - Manejo robusto de errores en actualización de badges
+- **API de clipboard moderna**: Uso de `navigator.clipboard` con manejo de errores completo
+
+### 🐛 Corregido
+- **Desincronización de badges**: Problema crítico donde el contador del título de ventana no se sincronizaba correctamente
+- **Cache de Windows**: Issues con el cache del título de ventana en Windows resueltos con actualizaciones forzadas
+- **Condiciones de carrera**: Eliminación de race conditions en la actualización de contadores
+- **Persistencia incorrecta**: Corrección del problema donde contadores persistían incorrectamente entre sesiones
+
+### 📝 Documentación
+- Logs de debugging documentados para troubleshooting
+- Especificación completa del sistema de labels
+- Guía de uso del sistema de notificaciones
+
+### 🚀 Performance
+- **Optimización de contadores**: Reducción de llamadas redundantes al backend
+- **Gestión eficiente de memoria**: Limpieza automática de referencias temporales
+- **Lazy loading de iconos**: Carga optimizada de recursos de interfaz
+
+### 💡 Compatibilidad
+- **Windows**: Mejoras específicas para el sistema de badges en taskbar
+- **Multiplataforma**: Mantenimiento de compatibilidad con macOS y Linux
+- **Navegadores modernos**: Uso de APIs modernas con fallbacks apropiados
+
 ## [1.0.14] - 2025-09-01
 
 ### ✨ Agregado

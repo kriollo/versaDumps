@@ -22,7 +22,7 @@ Unicode true
 !define INFO_PROJECTNAME    "VersaDumps" 
 !define INFO_COMPANYNAME    "kriollo"
 !define INFO_PRODUCTNAME    "VersaDumps Visualizer"
-!define INFO_PRODUCTVERSION "1.0.14"
+!define INFO_PRODUCTVERSION "1.2.0"
 !define INFO_COPYRIGHT      "© 2025 kriollo"
 ###
 !define PRODUCT_EXECUTABLE  "VersaDumps.exe"

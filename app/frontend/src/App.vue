@@ -57,11 +57,23 @@
         :key="log.id"
         :log="log"
         @delete="deleteLog(log.id)"
+        @copy="copyLogToClipboard"
       />
     </div>
 
     <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" @check-updates="handleCheckUpdates" />
     <UpdateNotification ref="updateNotificationRef" />
+
+    <!-- Toast Notification -->
+    <Transition name="toast">
+      <div
+        v-if="showToast"
+        class="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2"
+      >
+        <Icon name="check" class="text-sm" />
+        <span>{{ toastMessage }}</span>
+      </div>
+    </Transition>
 
     <!-- Version indicator -->
     <div class="version-indicator">
@@ -95,6 +107,20 @@ const currentVersion = ref(''); // Se obtiene del backend
 const hasUpdate = ref(false);
 const newVersion = ref('');
 const updateNotificationRef = ref(null);
+
+// TOAST NOTIFICATIONS
+const toastMessage = ref('');
+const showToast = ref(false);
+
+const showToastMessage = (message) => {
+  toastMessage.value = message;
+  showToast.value = true;
+
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    showToast.value = false;
+  }, 3000);
+};
 
 // THEME
 const theme = ref("dark");
@@ -161,8 +187,15 @@ onMounted(async () => {
     try {
       if (BackendApp.GetVisibleCount) {
         BackendApp.GetVisibleCount().then((cnt) => {
-          try { BackendApp.UpdateVisibleCount(cnt); } catch (e) {}
-          // Ensure badge UI matches (we don't have the actual logs list here, but set title via backend)
+          console.log('Backend counter at startup:', cnt);
+          // If backend has a count but frontend is empty, reset backend to match frontend
+          if (cnt > 0 && logs.value.length === 0) {
+            console.log('Resetting backend counter from', cnt, 'to 0 to match empty frontend');
+            try { BackendApp.UpdateVisibleCount(0); } catch (e) {}
+          } else if (cnt !== logs.value.length) {
+            console.log('Syncing backend counter from', cnt, 'to', logs.value.length);
+            try { BackendApp.UpdateVisibleCount(logs.value.length); } catch (e) {}
+          }
         }).catch(()=>{});
       }
     } catch (e) {}
@@ -187,8 +220,72 @@ onMounted(() => {
   EventsOn("newData", (data) => {
     try {
       const parsedData = JSON.parse(data);
+
+      // Procesar la propiedad 'label' si existe
+      if (parsedData.label && parsedData.context) {
+
+        if (Array.isArray(parsedData.context)) {
+          // Si context es un array, reemplazar el primer elemento
+          if (parsedData.context.length > 0) {
+            const firstValue = parsedData.context[0];
+
+            // Crear un nuevo objeto donde la clave es el label y el valor es el primer elemento del array
+            const newContext = { [parsedData.label]: firstValue };
+
+            // Agregar el resto de elementos del array como claves numéricas empezando desde 1
+            for (let i = 1; i < parsedData.context.length; i++) {
+              newContext[i.toString()] = parsedData.context[i];
+            }
+
+            parsedData.context = newContext;
+          }
+        } else if (typeof parsedData.context === 'object') {
+          const keys = Object.keys(parsedData.context);
+
+          if (keys.length > 0) {
+            const firstKey = keys[0];
+            const firstValue = parsedData.context[firstKey];
+
+
+
+            // Crear un nuevo objeto reemplazando la primera clave por el label
+            const newContext = { [parsedData.label]: firstValue };
+
+            // Agregar el resto de propiedades manteniendo sus claves originales
+            for (let i = 1; i < keys.length; i++) {
+              newContext[keys[i]] = parsedData.context[keys[i]];
+            }
+            parsedData.context = newContext;
+
+          }
+        }
+
+        // Eliminar la propiedad label ya que fue procesada
+        delete parsedData.label;
+      }
+
       logs.value.push({ ...parsedData, id: Date.now() });
-      try { BackendApp.UpdateVisibleCount(logs.value.length); } catch (e) {}
+      console.log('=== NEW LOG ADDED ===');
+      console.log('Frontend count after add:', logs.value.length);
+
+      try {
+        BackendApp.UpdateVisibleCount(logs.value.length);
+        console.log('Sent to backend counter:', logs.value.length);
+
+        // Verify it was set correctly
+        BackendApp.GetVisibleCount().then((cnt) => {
+          console.log('Verified backend counter after add:', cnt);
+          if (cnt !== logs.value.length) {
+            console.error('❌ MISMATCH! Frontend:', logs.value.length, 'Backend:', cnt);
+          } else {
+            console.log('✅ Counters in sync!');
+          }
+        }).catch((e) => {
+          console.error('Error verifying backend counter:', e);
+        });
+      } catch (e) {
+        console.error('Error updating backend counter:', e);
+      }
       // Mostrar notificación si la ventana está minimizada
       try {
         const isMin = WindowIsMinimised();
@@ -229,12 +326,51 @@ onMounted(() => {
 
 const deleteLog = (id) => {
   logs.value = logs.value.filter((log) => log.id !== id);
-  try { BackendApp.UpdateVisibleCount(logs.value.length); } catch (e) {}
+  console.log('Deleted log, new count:', logs.value.length);
+  try {
+    BackendApp.UpdateVisibleCount(logs.value.length);
+    console.log('Updated backend counter to:', logs.value.length);
+  } catch (e) {
+    console.error('Error updating backend counter:', e);
+  }
 };
 
 const clearLogs = () => {
+  console.log('=== CLEARING LOGS ===');
+  console.log('Before clear - logs.length:', logs.value.length);
+
   logs.value = [];
-  try { BackendApp.UpdateVisibleCount(0); } catch (e) {}
+  console.log('After clear - logs.length:', logs.value.length);
+
+  // Ensure backend counter is properly reset
+  try {
+    BackendApp.UpdateVisibleCount(0);
+    console.log('Backend counter reset to 0');
+
+    // Double-check by getting the count back
+    BackendApp.GetVisibleCount().then((cnt) => {
+      console.log('Verified backend counter after reset:', cnt);
+    }).catch((e) => {
+      console.error('Error verifying backend counter:', e);
+    });
+  } catch (e) {
+    console.error('Error resetting backend counter:', e);
+  }
+};
+
+// COPY TO CLIPBOARD
+const copyLogToClipboard = async (log) => {
+  try {
+    // Remove the internal id before copying
+    const logCopy = { ...log };
+    delete logCopy.id;
+
+    await navigator.clipboard.writeText(JSON.stringify(logCopy, null, 2));
+    showToastMessage(t.value('copied_to_clipboard') || 'Copiado al portapapeles');
+  } catch (error) {
+    console.error('Error copying to clipboard:', error);
+    showToastMessage('Error al copiar al portapapeles');
+  }
 };
 
 // SORTING
@@ -265,12 +401,8 @@ const showUpdateNotification = () => {
 
 // Handle check updates from ConfigModal
 const handleCheckUpdates = () => {
-  console.log('App: handleCheckUpdates called');
   if (updateNotificationRef.value) {
-    console.log('App: calling updateNotificationRef.checkForUpdates');
     updateNotificationRef.value.checkForUpdates();
-  } else {
-    console.log('App: updateNotificationRef is null');
   }
 };
 </script>
@@ -339,5 +471,21 @@ const handleCheckUpdates = () => {
   100% {
     box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
   }
+}
+
+/* Toast Animation */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(100px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(100px);
 }
 </style>

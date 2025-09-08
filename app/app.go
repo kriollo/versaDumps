@@ -133,9 +133,19 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 // number of messages currently visible in the UI. This should be called by the frontend
 // whenever logs are added/removed/cleared so the title and any OS badges remain in sync.
 func (a *App) UpdateVisibleCount(count int) {
+	runtime.LogInfof(a.ctx, "UpdateVisibleCount called: old=%d, new=%d", a.messageCounter, count)
 	a.messageCounter = count
 	if a.ctx != nil {
-		runtime.WindowSetTitle(a.ctx, fmt.Sprintf("VersaDumps Visualizer (%d)", a.messageCounter))
+		newTitle := fmt.Sprintf("VersaDumps Visualizer (%d)", a.messageCounter)
+		runtime.WindowSetTitle(a.ctx, newTitle)
+		runtime.LogInfof(a.ctx, "Setting window title to: %s", newTitle)
+
+		// Force update by setting title again after a brief delay
+		// This helps with Windows caching issues
+		go func() {
+			// Small delay to ensure the first call is processed
+			runtime.WindowSetTitle(a.ctx, newTitle)
+		}()
 	}
 	// Update platform-specific taskbar/tray badge if available
 	SetTaskbarBadge(a.ctx, a.messageCounter)

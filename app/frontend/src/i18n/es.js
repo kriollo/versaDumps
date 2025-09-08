@@ -37,5 +37,6 @@ export default {
   check_for_updates: 'Revisar actualización',
   no_updates_available: 'No hay actualizaciones disponibles',
   up_to_date: 'Tu aplicación está actualizada',
-  latest_version: 'Tienes la versión más reciente'
+  latest_version: 'Tienes la versión más reciente',
+  copied_to_clipboard: 'Copiado al portapapeles'
 }
