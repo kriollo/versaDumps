@@ -13,7 +13,22 @@ import (
 // StartServer starts the HTTP server in a new goroutine.
 func StartServer(ctx context.Context, host string, port int, app *App) {
 	go func() {
+		runtime.LogInfof(ctx, "Attempting to start HTTP server...")
+		runtime.LogInfof(ctx, "Host: %s, Port: %d", host, port)
+
 		mux := http.NewServeMux()
+
+		// Health endpoint to report server status
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			runtime.LogInfof(ctx, "Health endpoint accessed from %s", r.RemoteAddr)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ok"}`))
+		})
+
 		mux.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -47,9 +62,19 @@ func StartServer(ctx context.Context, host string, port int, app *App) {
 
 		serverAddr := fmt.Sprintf("%s:%d", host, port)
 		runtime.LogInfof(ctx, "Starting HTTP server on %s", serverAddr)
+		runtime.LogInfof(ctx, "Server should be accessible at: http://%s:%d", host, port)
 
-		if err := http.ListenAndServe(serverAddr, mux); err != nil {
-			runtime.LogErrorf(ctx, "HTTP server error: %v", err)
+		server := &http.Server{
+			Addr:    serverAddr,
+			Handler: mux,
+		}
+
+		runtime.LogInfof(ctx, "About to call ListenAndServe...")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			runtime.LogErrorf(ctx, "HTTP server failed to start: %v", err)
+			runtime.LogErrorf(ctx, "Server address was: %s", serverAddr)
+		} else {
+			runtime.LogInfof(ctx, "HTTP server started successfully on %s", serverAddr)
 		}
 	}()
 }

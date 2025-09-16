@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	gosys "runtime"
@@ -17,6 +18,8 @@ type App struct {
 	ctx            context.Context
 	messageCounter int
 	updateManager  *UpdateManager
+	httpServer     *http.Server
+	serverCancel   context.CancelFunc
 }
 
 // NewApp creates a new App application struct
@@ -36,8 +39,8 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogErrorf(ctx, "Failed to load or create config.yml: %v", err)
 		// Use fallback defaults if config creation failed
 		cfg = &Config{
-			Server:    "localhost",
-			Port:      9191,
+			Server:    "127.0.0.1",
+			Port:      8080,
 			Theme:     "dark",
 			Lang:      "en",
 			ShowTypes: true,
@@ -54,7 +57,7 @@ func (a *App) startup(ctx context.Context) {
 	runtime.EventsEmit(ctx, "configLoaded", string(cfgBytes))
 
 	// Start the background HTTP server, passing the app instance
-	StartServer(ctx, cfg.Server, cfg.Port, a)
+	a.startHTTPServer(cfg.Server, cfg.Port)
 
 	// Initialize window title with current counter
 	if a.ctx != nil {
@@ -77,7 +80,7 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 	cfg, err := LoadConfig()
 	if err != nil {
 		// if config doesn't exist, start from defaults
-		cfg = &Config{Server: "localhost", Port: 9191}
+		cfg = &Config{Server: "127.0.0.1", Port: 8080}
 	}
 
 	// Handle server field
@@ -126,7 +129,19 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 		}
 	}
 
-	return SaveConfig(cfg)
+	// Save the configuration
+	err = SaveConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	// Restart the HTTP server to apply new settings
+	runtime.LogInfof(a.ctx, "Configuration saved, restarting HTTP server...")
+	go func() {
+		a.RestartHTTPServer()
+	}()
+
+	return nil
 }
 
 // UpdateVisibleCount updates the internal counter and window title based on the
@@ -264,6 +279,43 @@ func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 // GetCurrentVersion retorna la versión actual de la aplicación
 func (a *App) GetCurrentVersion() string {
 	return CurrentVersion
+}
+
+// startHTTPServer starts the HTTP server and stores its reference
+func (a *App) startHTTPServer(host string, port int) {
+	// Stop existing server if running
+	a.stopHTTPServer()
+
+	// Create context for the server
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.serverCancel = cancel
+
+	// Start server in background
+	go func() {
+		StartServer(ctx, host, port, a)
+	}()
+}
+
+// stopHTTPServer stops the current HTTP server
+func (a *App) stopHTTPServer() {
+	if a.serverCancel != nil {
+		runtime.LogInfof(a.ctx, "Stopping HTTP server...")
+		a.serverCancel()
+		a.serverCancel = nil
+	}
+}
+
+// RestartHTTPServer restarts the HTTP server with new configuration
+func (a *App) RestartHTTPServer() error {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	runtime.LogInfof(a.ctx, "Restarting HTTP server with new config: %s:%d", cfg.Server, cfg.Port)
+	a.startHTTPServer(cfg.Server, cfg.Port)
+
+	return nil
 }
 
 // Implementations for SetTaskbarBadge are platform-specific and live in

@@ -13,7 +13,7 @@ import (
 )
 
 // Version actual de la aplicación
-const CurrentVersion = "2.0.1"
+const CurrentVersion = "2.1.0"
 
 // GitHubRelease estructura para parsear la respuesta de GitHub API
 type GitHubRelease struct {
@@ -88,15 +88,16 @@ func (um *UpdateManager) CheckForUpdates() (*UpdateInfo, error) {
 		body, _ := io.ReadAll(resp.Body)
 		fmt.Printf("CheckForUpdates: Response body: %s\n", string(body))
 
-		// Si hay rate limiting, retornar una respuesta de prueba
+		// Si hay rate limiting o cualquier error, retornar "no hay actualización"
+		// en lugar de una actualización falsa
 		if resp.StatusCode == 403 {
-			fmt.Printf("CheckForUpdates: Rate limiting detected, using test response\n")
+			fmt.Printf("CheckForUpdates: Rate limiting detected, returning no update available\n")
 			return &UpdateInfo{
-				Available:      true,
-				Version:        "1.0.13",
-				Description:    "Test update - GitHub API rate limited",
-				DownloadURL:    "https://github.com/kriollo/versaDumps/releases/download/v1.0.13/versaDumps-setup-amd64.exe",
-				ReleaseURL:     "https://github.com/kriollo/versaDumps/releases/tag/v1.0.13",
+				Available:      false,          // Changed from true to false
+				Version:        CurrentVersion, // Use current version instead of fake version
+				Description:    "Unable to check for updates due to API rate limiting",
+				DownloadURL:    "",
+				ReleaseURL:     "https://github.com/kriollo/versaDumps/releases",
 				Size:           0,
 				CurrentVersion: CurrentVersion,
 			}, nil
@@ -126,7 +127,7 @@ func (um *UpdateManager) CheckForUpdates() (*UpdateInfo, error) {
 		return &UpdateInfo{
 			Available:      false,
 			CurrentVersion: CurrentVersion,
-			Version:        latestVersion,
+			Version:        CurrentVersion, // Use current version, not latest when no update available
 		}, nil
 	}
 
@@ -237,10 +238,22 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 // compareVersions compara dos versiones en formato semver
 // Retorna: -1 si v1 < v2, 0 si v1 == v2, 1 si v1 > v2
 func compareVersions(v1, v2 string) int {
+	// Log the comparison for debugging
+	fmt.Printf("compareVersions: Comparing v1='%s' with v2='%s'\n", v1, v2)
+
 	parts1 := strings.Split(v1, ".")
 	parts2 := strings.Split(v2, ".")
 
-	for i := 0; i < 3; i++ {
+	// Ensure we have at least 3 parts for major.minor.patch
+	maxLen := 3
+	if len(parts1) > maxLen {
+		maxLen = len(parts1)
+	}
+	if len(parts2) > maxLen {
+		maxLen = len(parts2)
+	}
+
+	for i := 0; i < maxLen; i++ {
 		var p1, p2 int
 		if i < len(parts1) {
 			fmt.Sscanf(parts1[i], "%d", &p1)
@@ -249,13 +262,18 @@ func compareVersions(v1, v2 string) int {
 			fmt.Sscanf(parts2[i], "%d", &p2)
 		}
 
+		fmt.Printf("compareVersions: Part %d: p1=%d, p2=%d\n", i, p1, p2)
+
 		if p1 < p2 {
+			fmt.Printf("compareVersions: Result: -1 (v1 < v2)\n")
 			return -1
 		}
 		if p1 > p2 {
+			fmt.Printf("compareVersions: Result: 1 (v1 > v2)\n")
 			return 1
 		}
 	}
 
+	fmt.Printf("compareVersions: Result: 0 (v1 == v2)\n")
 	return 0
 }

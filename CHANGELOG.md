@@ -4,8 +4,22 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.1.0] - 2025-09-16
 
-## [1.2.0] - 2025-09-08
+### 🔧 Corregido
+- **Indicador de estado del servidor**: Se añadió un endpoint `/health` y un indicador en la interfaz que muestra estado 'online'/'offline'/'unknown' con sondeo cada 5s.
+- **Reinicio del servidor al guardar configuración**: Ahora la aplicación reinicia el servidor HTTP internamente cuando se guardan cambios relevantes en `config.yml` (por ejemplo, cambio de puerto o host), aplicando los nuevos valores sin requerir reinicio manual.
+- **Manejo de puerto y arranque**: Se corrigieron problemas con la configuración del puerto (anteriormente permisos y puerto erróneo). El servidor ahora se inicia correctamente en el arranque con la configuración cargada.
+- **Corrección en comprobación de actualizaciones**: Evita falsos positivos cuando la API de GitHub responde con rate limiting; se añade verificación adicional en el frontend para asegurar que la versión reportada es realmente más nueva.
+
+### 🎨 Interfaz
+- **Recarga de configuración en caliente**: Al guardar la configuración desde el modal, la UI aplica los cambios de tema y idioma inmediatamente y reinicia el sondeo de salud del servidor si cambian host/puerto.
+
+### 🔧 Técnico
+- **Mejor sincronización frontend/backend**: Guardado de configuración desde frontend ahora persiste y notifica al backend para aplicar los cambios sin necesidad de reiniciar la aplicación.
+- **Logging mejorado**: Mensajes informativos añadidos para el proceso de guardado y reinicio del servidor para facilitar debugging.
+
+## [2.0.1] - 2025-09-08
 
 ### ✨ Agregado
 - **Sistema de etiquetas personalizadas (Labels)**: Nueva propiedad `label` en dumps de PHP que reemplaza automáticamente la primera clave del contexto
