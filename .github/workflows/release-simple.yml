@@ -28,6 +28,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: app/frontend/package-lock.json
 
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+          # Añadir NSIS al PATH
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Build
         shell: bash
         run: |
@@ -43,28 +49,48 @@ jobs:
           # Crear directorio bin y copiar config.yml ANTES del build para que NSIS lo encuentre
           mkdir -p build/bin
           cp config.yml build/bin/config.yml
-          # Build con instalador NSIS
+          # Build con instalador NSIS (genera tanto .exe como .msi)
           wails build -platform windows/amd64 -nsis -webview2=embed
           # También compilar versión portable
           wails build -platform windows/amd64 -nsis=false -webview2=embed
+          # Debug: listar archivos generados
+          echo "Archivos generados en build/bin:"
+          ls -la build/bin/
 
       - name: Package
         shell: pwsh
         run: |
           cd app/build/bin
-          # Renombrar el instalador
+          # Debug: mostrar todos los archivos disponibles
+          Write-Host "Archivos disponibles en build/bin:"
+          Get-ChildItem -Force
+          # Con nsisType: "multiple", Wails genera tanto .exe como .msi
+          # Renombrar el instalador NSIS (.exe)
           if (Test-Path "VersaDumps-amd64-installer.exe") {
             Move-Item "VersaDumps-amd64-installer.exe" "../../../versaDumps-setup-amd64.exe"
+            Write-Host "✅ Movido versaDumps-setup-amd64.exe"
+          } else {
+            Write-Host "❌ No se encontró VersaDumps-amd64-installer.exe"
+          }
+          # Renombrar el instalador MSI (.msi)
+          if (Test-Path "VersaDumps-amd64-installer.msi") {
+            Move-Item "VersaDumps-amd64-installer.msi" "../../../versaDumps-setup-amd64.msi"
+            Write-Host "✅ Movido versaDumps-setup-amd64.msi"
+          } else {
+            Write-Host "❌ No se encontró VersaDumps-amd64-installer.msi"
           }
           # Crear archivo zip con la versión portable
           Compress-Archive -Path VersaDumps.exe, config.yml -DestinationPath ../../../versaDumps-windows-amd64-portable.zip
+          Write-Host "✅ Creado versaDumps-windows-amd64-portable.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
             versaDumps-setup-amd64.exe
+            versaDumps-setup-amd64.msi
             versaDumps-windows-amd64-portable.zip
+          if-no-files-found: ignore
 
   build-macos:
     runs-on: macos-14
@@ -213,6 +239,7 @@ jobs:
         with:
           files: |
             versaDumps-setup-amd64.exe
+            versaDumps-setup-amd64.msi
             versaDumps-windows-amd64-portable.zip
             versaDumps-macos-amd64.tar.gz
             versaDumps-linux-amd64.tar.gz

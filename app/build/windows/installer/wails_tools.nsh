@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "VersaDumps Visualizer"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "1.1.10"
+    !define INFO_PRODUCTVERSION "2.1.2"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "Copyright © 2025 kriollo"
