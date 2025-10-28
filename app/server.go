@@ -42,6 +42,12 @@ func StartServer(ctx context.Context, host string, port int, app *App) {
 				return
 			}
 
+			// DEBUG: Log del payload RAW recibido
+			runtime.LogInfof(ctx, "════════════════════════════════════════")
+			runtime.LogInfof(ctx, "RAW PAYLOAD RECEIVED:")
+			runtime.LogInfof(ctx, "%s", string(body))
+			runtime.LogInfof(ctx, "════════════════════════════════════════")
+
 			var js interface{}
 			if err := json.Unmarshal(body, &js); err != nil {
 				runtime.LogErrorf(ctx, "Invalid JSON received: %v", err)

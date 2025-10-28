@@ -50,6 +50,30 @@
     </div>
     <!-- Context Tree View -->
     <JsonTreeView v-if="parsedContext" :json-data="parsedContext" />
+
+    <!-- Stack Trace (si está disponible) -->
+    <div v-if="log.trace || log.stack || log.backtrace" class="mt-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+      <div class="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-2">
+        <Icon name="list" />
+        Stack Trace
+      </div>
+      <div class="space-y-1 max-h-64 overflow-y-auto">
+        <div
+          v-for="(frame, index) in traceFrames"
+          :key="index"
+          class="text-xs font-mono bg-slate-50 dark:bg-slate-800 p-2 rounded border-l-2 border-blue-400"
+        >
+          <div class="text-slate-700 dark:text-slate-300">
+            <span class="text-blue-600 dark:text-blue-400">{{ index + 1 }}.</span>
+            <span v-if="frame.class" class="text-green-600 dark:text-green-400">{{ frame.class }}{{ frame.type || '::' }}</span>
+            <span class="font-semibold">{{ frame.function || 'anonymous' }}()</span>
+          </div>
+          <div v-if="frame.file" class="text-slate-500 dark:text-slate-400 truncate" :title="frame.file">
+            {{ frame.file }}<span v-if="frame.line" class="text-blue-600 dark:text-blue-400">:{{ frame.line }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -114,6 +138,30 @@ const parsedContext = computed(() => {
   return parseContext(props.log.context)
 })
 
+// Procesar stack trace si está disponible
+const traceFrames = computed(() => {
+  const trace = props.log.trace || props.log.stack || props.log.backtrace;
+
+  if (!trace) return [];
+
+  // Si trace es un array, usarlo directamente
+  if (Array.isArray(trace)) {
+    return trace;
+  }
+
+  // Si trace es un número (niveles de trace solicitados), no hay frames
+  if (typeof trace === 'number') {
+    return [];
+  }
+
+  // Si trace es un objeto, intentar convertirlo a array
+  if (typeof trace === 'object') {
+    return Object.values(trace);
+  }
+
+  return [];
+});
+
 // A simple hashing function to get a consistent color for a given file path
 const stringToHslColor = (str, s, l) => {
   let hash = 0;
@@ -124,7 +172,27 @@ const stringToHslColor = (str, s, l) => {
   return 'hsl('+ h +', '+ s +'%, '+ l +'%)';
 }
 
+// Mapa de colores semánticos de versadumps-php a Tailwind
+const semanticColors = {
+  'red': 'border-red-500',
+  'green': 'border-green-500',
+  'blue': 'border-blue-500',
+  'yellow': 'border-yellow-500',
+  'purple': 'border-purple-500',
+  'orange': 'border-orange-500',
+  'pink': 'border-pink-500',
+  'cyan': 'border-cyan-500',
+  'gray': 'border-gray-500',
+  'white': 'border-slate-300 dark:border-slate-600',
+};
+
 const borderColor = computed(() => {
+    // Si hay color semántico del metadata, usarlo
+    if (props.log.color && semanticColors[props.log.color.toLowerCase()]) {
+      return semanticColors[props.log.color.toLowerCase()];
+    }
+
+    // Fallback: color basado en el path del archivo
     const color = stringToHslColor(props.log.frame.file, 50, 60);
     return `border-color: ${color}`;
 });

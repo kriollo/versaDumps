@@ -13,6 +13,8 @@
 *.so
 *.dylib
 
+/phpBack/*
+
 # Test files
 test_*.ps1
 check_*.ps1

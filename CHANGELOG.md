@@ -4,6 +4,69 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.2.0] - 2025-10-28
+
+### ✨ Agregado
+- **Soporte completo para versadumps-php 2.2.0**:
+  - Integración con la nueva estructura de payload que incluye objeto `metadata`
+  - Visualización de stack traces completos con información detallada de frames
+  - Soporte para métodos semánticos (success, error, info, warning, important)
+  - Compatibilidad con 10 colores personalizados (red, blue, green, yellow, orange, purple, pink, cyan, gray, white)
+  - Procesamiento de etiquetas con emojis
+  - Soporte para ejecución condicional (if/unless)
+  - Manejo de método once() para prevenir duplicados en loops
+  - Profundidad máxima configurable para serialización
+
+### 🎨 Interfaz
+- **Componente de Stack Trace**: Nueva sección expandible en cada log que muestra:
+  - Clase y método donde se originó el dump
+  - Ruta completa del archivo
+  - Número de línea exacto
+  - Jerarquía completa de llamadas (frames)
+- **Colores semánticos**: Cada log muestra un borde de color según su tipo:
+  - Verde para success
+  - Rojo para error/important
+  - Azul para info
+  - Amarillo para warning
+  - Y 6 colores adicionales personalizables
+- **Normalización mejorada de payloads**: Procesamiento inteligente que soporta tanto el formato 2.2.0 como versiones anteriores
+
+### 🔧 Mejorado
+- **Procesamiento de metadata**: Extracción correcta de `metadata.trace` del payload PHP
+- **Compatibilidad retroactiva**: El visualizador mantiene soporte para formatos antiguos de payload
+- **Logging de debugging**: Logs detallados en consola para diagnóstico (`📦 Payload recibido`, `🔄 Datos normalizados`)
+- **Preservación de metadata**: El objeto metadata ahora se mantiene completo para debugging y procesamiento posterior
+
+### 🐛 Corregido
+- **Bug crítico en extracción de trace**: Corregida la lectura de `metadata.trace` (anteriormente buscaba incorrectamente `metadata.includeTrace`)
+- **Pérdida de metadata**: Se eliminó el código que borraba prematuramente el objeto `metadata` del payload
+- **Mapeo de colores**: Corrección en el mapeo de colores semánticos a clases Tailwind CSS
+- **Visualización de traces**: Los stack traces ahora se muestran correctamente en la interfaz
+
+### 🔧 Técnico
+- **Estructura de payload normalizada**: Sistema robusto que maneja:
+  - `metadata.trace`: Array de frames con información de stack trace
+  - `metadata.color`: Color personalizado del log
+  - `metadata.max_depth`: Profundidad máxima de serialización
+  - Fallbacks para compatibilidad con versiones anteriores
+- **Computed properties optimizadas**:
+  - `traceFrames`: Procesa y formatea frames de stack trace
+  - `borderColor`: Determina color del borde basado en metadata o hash de archivo
+  - `semanticColors`: Mapeo completo de colores a clases CSS
+- **Mejor manejo de context.variables**: Soporte para la nueva estructura donde variables vienen dentro de `context.variables`
+
+### 📝 Compatibilidad
+- **versadumps-php 2.2.0**: Soporte completo para todas las características de la librería PHP actualizada
+- **Builder Pattern**: Compatible con el nuevo patrón de construcción encadenado
+- **Métodos semánticos**: Integración con success(), error(), info(), warning(), important()
+- **Backward compatible**: Mantiene compatibilidad con payloads de versiones 2.1.0 y anteriores
+
+### 🚀 Performance
+- **Procesamiento optimizado**: Normalización de payloads sin impacto en rendimiento
+- **Renderizado condicional**: Stack traces solo se procesan y muestran cuando están presentes
+- **Carga eficiente**: Expansión/colapso de traces sin recargar componentes
+
 ## [2.1.0] - 2025-09-16
 
 ### 🔧 Corregido

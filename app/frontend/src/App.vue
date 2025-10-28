@@ -409,50 +409,115 @@ onMounted(() => {
     try {
       const parsedData = JSON.parse(data);
 
-      // Procesar la propiedad 'label' si existe
-      if (parsedData.label && parsedData.context) {
+      // Normalizar estructura para versadumps-php 2.2.0
+      // La nueva versión envía: { context: { variables, line, file }, frame: {...}, label, metadata: { color, includeTrace, max_depth } }
+      let normalizedData = { ...parsedData };
 
-        if (Array.isArray(parsedData.context)) {
+      // Si tiene metadata (versión 2.2.0+), procesar
+      if (parsedData.metadata) {
+        // Extraer color del metadata
+        if (parsedData.metadata.color) {
+          normalizedData.color = parsedData.metadata.color;
+        }
+
+        // Extraer trace del metadata (la librería PHP envía metadata.trace)
+        if (parsedData.metadata.trace) {
+          normalizedData.trace = parsedData.metadata.trace;
+        }
+
+        // Extraer max_depth del metadata
+        if (parsedData.metadata.max_depth) {
+          normalizedData.max_depth = parsedData.metadata.max_depth;
+        }
+      }
+
+      // Si color viene directamente (sin metadata), usarlo
+      if (!normalizedData.color && parsedData.color) {
+        normalizedData.color = parsedData.color;
+      }
+
+      // Si trace viene directamente (sin metadata), usarlo
+      if (!normalizedData.trace && parsedData.trace) {
+        normalizedData.trace = parsedData.trace;
+      }
+
+      // Buscar trace/stack en frame o en el payload raíz
+      if (!normalizedData.trace) {
+        if (parsedData.frame && parsedData.frame.trace) {
+          normalizedData.trace = parsedData.frame.trace;
+        } else if (parsedData.stack) {
+          normalizedData.trace = parsedData.stack;
+        } else if (parsedData.backtrace) {
+          normalizedData.trace = parsedData.backtrace;
+        }
+      }
+
+      console.log('📦 Payload recibido:', parsedData);
+      console.log('🔄 Datos normalizados:', normalizedData);      // Procesar context.variables si existe (versión 2.2.0+)
+      if (parsedData.context && parsedData.context.variables) {
+        // La nueva estructura tiene variables dentro de context
+        normalizedData.context = parsedData.context.variables;
+
+        // Preservar file y line del context
+        if (parsedData.context.file && !normalizedData.frame) {
+          normalizedData.frame = {
+            file: parsedData.context.file,
+            line: parsedData.context.line || 0,
+            function: parsedData.frame?.caller || parsedData.frame?.function || ''
+          };
+        }
+      }
+
+      // Procesar la propiedad 'label' si existe
+      if (normalizedData.label && normalizedData.context) {
+
+        if (Array.isArray(normalizedData.context)) {
           // Si context es un array, reemplazar el primer elemento
-          if (parsedData.context.length > 0) {
-            const firstValue = parsedData.context[0];
+          if (normalizedData.context.length > 0) {
+            const firstValue = normalizedData.context[0];
 
             // Crear un nuevo objeto donde la clave es el label y el valor es el primer elemento del array
-            const newContext = { [parsedData.label]: firstValue };
+            const newContext = { [normalizedData.label]: firstValue };
 
             // Agregar el resto de elementos del array como claves numéricas empezando desde 1
-            for (let i = 1; i < parsedData.context.length; i++) {
-              newContext[i.toString()] = parsedData.context[i];
+            for (let i = 1; i < normalizedData.context.length; i++) {
+              newContext[i.toString()] = normalizedData.context[i];
             }
 
-            parsedData.context = newContext;
+            normalizedData.context = newContext;
           }
-        } else if (typeof parsedData.context === 'object') {
-          const keys = Object.keys(parsedData.context);
+        } else if (typeof normalizedData.context === 'object') {
+          const keys = Object.keys(normalizedData.context);
 
           if (keys.length > 0) {
             const firstKey = keys[0];
-            const firstValue = parsedData.context[firstKey];
-
-
+            const firstValue = normalizedData.context[firstKey];
 
             // Crear un nuevo objeto reemplazando la primera clave por el label
-            const newContext = { [parsedData.label]: firstValue };
+            const newContext = { [normalizedData.label]: firstValue };
 
             // Agregar el resto de propiedades manteniendo sus claves originales
             for (let i = 1; i < keys.length; i++) {
-              newContext[keys[i]] = parsedData.context[keys[i]];
+              newContext[keys[i]] = normalizedData.context[keys[i]];
             }
-            parsedData.context = newContext;
+            normalizedData.context = newContext;
 
           }
         }
 
         // Eliminar la propiedad label ya que fue procesada
-        delete parsedData.label;
+        delete normalizedData.label;
       }
 
-      logs.value.push({ ...parsedData, id: Date.now() });
+      // NO eliminar metadata - dejarlo para debugging y procesamiento posterior
+      // El trace está dentro de metadata.trace y necesitamos preservarlo
+      /*
+      if (normalizedData.metadata) {
+        delete normalizedData.metadata;
+      }
+      */
+
+      logs.value.push({ ...normalizedData, id: Date.now() });
       console.log('=== NEW LOG ADDED ===');
       console.log('Frontend count after add:', logs.value.length);
 
