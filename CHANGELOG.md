@@ -5,6 +5,61 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2025-11-06
+
+### 🐛 Corregido
+- **Sistema de monitoreo de archivos de log**: Corrección crítica en el manejo de archivos
+  - Solucionado problema de archivos bloqueados en Windows que impedía la escritura por otras aplicaciones
+  - Eliminado el mantenimiento de handles de archivos abiertos permanentemente
+  - Implementado sistema de apertura temporal solo para lectura con cierre inmediato
+  - Los archivos ahora se abren con acceso compartido de lectura (`os.O_RDONLY`)
+  - Cierre automático de archivos después de cada lectura mediante `defer`
+  - Solución completa al error "locked a portion of the file" en Windows
+  - Mejora significativa en la gestión de recursos del sistema
+  - Prevención de errores "file locked" y "access denied" en sistemas Windows
+
+### 🔧 Mejorado
+- **LogWatcher optimizado**: Optimización en la gestión de recursos
+  - Cambio de arquitectura: `LogFile` ahora solo almacena metadata (Path, LastPosition, LastModTime, LastSize)
+  - Eliminado el campo `File` de la estructura `LogFile`
+  - Los archivos se abren solo cuando es necesario leer nuevas líneas
+  - Mejor detección de rotación de logs comparando tamaño actual vs. última posición
+  - Reinicio automático desde el principio del archivo cuando se detecta rotación
+  - Logs informativos cuando se detecta rotación de archivos
+
+- **Performance del LogWatcher**:
+  - Reducción drástica del uso de memoria al no mantener archivos abiertos
+  - Eliminación de posibles fugas de memoria por archivos no cerrados
+  - Sistema más robusto de lectura con cierre garantizado mediante `defer`
+  - Manejo robusto de archivos eliminados con verificación de existencia
+  - Mensajes de log más descriptivos con nombres de archivo cortos
+  - Eliminada la lógica innecesaria de detección de archivos bloqueados (ya no es necesaria)
+
+### 🎨 Interfaz
+- **Código formateado**: Reformateado de `App.vue` y `LogFileViewer.vue` para mejor legibilidad
+  - Indentación consistente en toda la plantilla
+  - Mejor organización de atributos en elementos Vue
+  - Código más limpio y mantenible
+
+### 💡 Compatibilidad
+- **Windows**: Solución definitiva para problemas de bloqueo de archivos en sistemas Windows
+  - Compatible con aplicaciones que escriben en logs simultáneamente
+  - No más errores de "file being used by another process"
+  - Acceso compartido correcto a archivos de log
+
+### 📝 Técnico
+- **Arquitectura mejorada**: 
+  - Cambio de modelo de "archivos abiertos permanentemente" a "apertura temporal bajo demanda"
+  - `LogFile` ahora solo contiene metadata (Path, LastPosition, LastModTime, LastSize)
+  - Método `registerFile()` reemplaza a `tailFile()` para registro sin apertura
+  - Método `readNewLines()` ahora maneja todo el ciclo de vida del archivo (open/read/close)
+  - Eliminación del campo `File *os.File` de la estructura `LogFile`
+
+- **Gestión de recursos**: 
+  - Limpieza automática de recursos al detener el watcher
+  - No se requiere cerrar archivos en el shutdown (no hay archivos abiertos)
+  - Mejor compatibilidad con aplicaciones que escriben a los mismos archivos de log
+
 ## [3.0.0] - 2025-11-05
 
 ### ✨ Agregado

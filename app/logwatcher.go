@@ -28,12 +28,12 @@ type LogWatcher struct {
 	wg       sync.WaitGroup // Track active goroutines
 }
 
-// LogFile represents a monitored log file
+// LogFile represents a monitored log file (NO FILE HANDLE - only metadata)
 type LogFile struct {
 	Path         string
-	File         *os.File
 	LastPosition int64
 	LastModTime  time.Time
+	LastSize     int64
 	mu           sync.Mutex
 }
 
@@ -109,19 +109,11 @@ func (lw *LogWatcher) Stop() {
 	close(lw.stopChan)
 	lw.wg.Wait()
 
-	// Now safely close resources
+	// Clear resources
 	lw.mu.Lock()
 	defer lw.mu.Unlock()
 
-	// Close all open files
-	for path, logFile := range lw.files {
-		if logFile.File != nil {
-			logFile.File.Close()
-			runtime.LogInfof(lw.ctx, "Closed file: %s", path)
-		}
-	}
-
-	// Clear the files map
+	// No files to close - we don't keep them open!
 	lw.files = make(map[string]*LogFile)
 
 	// Close the watcher
@@ -155,10 +147,10 @@ func (lw *LogWatcher) addFolder(folder LogFolder) error {
 		return err
 	}
 
-	// Start tailing each file
+	// Register each file for monitoring (but don't open them)
 	for _, filePath := range files {
-		if err := lw.tailFile(filePath, folder); err != nil {
-			runtime.LogErrorf(lw.ctx, "Error tailing file %s: %v", filePath, err)
+		if err := lw.registerFile(filePath); err != nil {
+			runtime.LogErrorf(lw.ctx, "Error registering file %s: %v", filePath, err)
 		}
 	}
 
@@ -199,37 +191,25 @@ func (lw *LogWatcher) findMatchingFiles(folder LogFolder) ([]string, error) {
 	return matchingFiles, err
 }
 
-// tailFile starts tailing a file from the end (like tail -f)
-func (lw *LogWatcher) tailFile(filePath string, folder LogFolder) error {
-	file, err := os.Open(filePath)
+// registerFile registers a file for monitoring WITHOUT opening it
+func (lw *LogWatcher) registerFile(filePath string) error {
+	// Get file info to store initial state
+	info, err := os.Stat(filePath)
 	if err != nil {
 		return err
 	}
 
-	info, err := file.Stat()
-	if err != nil {
-		file.Close()
-		return err
-	}
-
-	// Seek to end of file (tail -f behavior)
-	// If you want to read existing content, use: file.Seek(0, io.SeekStart)
-	position, err := file.Seek(0, io.SeekEnd)
-	if err != nil {
-		file.Close()
-		return err
-	}
-
+	// Create LogFile metadata (NO FILE HANDLE)
 	logFile := &LogFile{
 		Path:         filePath,
-		File:         file,
-		LastPosition: position,
+		LastPosition: info.Size(), // Start at end (tail -f behavior)
 		LastModTime:  info.ModTime(),
+		LastSize:     info.Size(),
 	}
 
 	lw.files[filePath] = logFile
 
-	runtime.LogInfof(lw.ctx, "Started tailing file: %s", filePath)
+	runtime.LogInfof(lw.ctx, "Registered file for monitoring: %s", filePath)
 	return nil
 }
 
@@ -267,9 +247,15 @@ func (lw *LogWatcher) handleEvent(event fsnotify.Event) {
 	logFile, exists := lw.files[event.Name]
 	lw.mu.RUnlock()
 
+	// Handle file creation
+	if event.Op&fsnotify.Create == fsnotify.Create {
+		if !exists {
+			lw.handleNewFile(event.Name)
+		}
+		return
+	}
+
 	if !exists {
-		// New file created, check if it matches our patterns
-		lw.handleNewFile(event.Name)
 		return
 	}
 
@@ -284,7 +270,7 @@ func (lw *LogWatcher) handleEvent(event fsnotify.Event) {
 	}
 }
 
-// handleNewFile checks if a new file matches our patterns and starts tailing it
+// handleNewFile checks if a new file matches our patterns and starts monitoring it
 func (lw *LogWatcher) handleNewFile(filePath string) {
 	lw.mu.RLock()
 	// Make a copy of folders to avoid holding the lock during file operations
@@ -310,9 +296,12 @@ func (lw *LogWatcher) handleNewFile(filePath string) {
 
 			matched, _ := regexp.MatchString(pattern, filepath.Base(filePath))
 			if matched {
+				// Small delay to ensure file is ready
+				time.Sleep(100 * time.Millisecond)
+
 				// Lock only when actually modifying the files map
 				lw.mu.Lock()
-				lw.tailFile(filePath, folder)
+				lw.registerFile(filePath)
 				lw.mu.Unlock()
 				return
 			}
@@ -320,42 +309,65 @@ func (lw *LogWatcher) handleNewFile(filePath string) {
 	}
 }
 
-// removeFile closes and removes a file from tracking
+// removeFile removes a file from tracking (no file handles to close!)
 func (lw *LogWatcher) removeFile(filePath string) {
 	lw.mu.Lock()
 	defer lw.mu.Unlock()
 
-	if logFile, exists := lw.files[filePath]; exists {
-		if logFile.File != nil {
-			logFile.File.Close()
-		}
+	if _, exists := lw.files[filePath]; exists {
 		delete(lw.files, filePath)
-		runtime.LogInfof(lw.ctx, "Stopped tailing file: %s", filePath)
+		runtime.LogInfof(lw.ctx, "Stopped monitoring file: %s", filePath)
 	}
 }
 
-// readNewLines reads new lines from a log file and emits them
+// readNewLines reads new lines from a log file by opening it temporarily
 func (lw *LogWatcher) readNewLines(logFile *LogFile) {
 	logFile.mu.Lock()
 	defer logFile.mu.Unlock()
 
-	// Get current file info
-	info, err := logFile.File.Stat()
+	// Check if file still exists
+	info, err := os.Stat(logFile.Path)
 	if err != nil {
-		runtime.LogErrorf(lw.ctx, "Error getting file info: %v", err)
+		if os.IsNotExist(err) {
+			// File was deleted, will be handled by remove event
+			return
+		}
+		runtime.LogErrorf(lw.ctx, "Error getting file info for %s: %v", logFile.Path, err)
 		return
 	}
 
 	currentSize := info.Size()
 
-	// If file was truncated (log rotation), start from beginning
+	// Detect log rotation (file was truncated or recreated)
 	if currentSize < logFile.LastPosition {
-		logFile.File.Seek(0, io.SeekStart)
+		runtime.LogInfof(lw.ctx, "Log rotation detected for %s, restarting from beginning", filepath.Base(logFile.Path))
 		logFile.LastPosition = 0
+		logFile.LastSize = 0
 	}
 
-	// Read new lines with buffer limit to prevent memory issues
-	scanner := bufio.NewScanner(logFile.File)
+	// If no new content, skip
+	if currentSize == logFile.LastPosition {
+		return
+	}
+
+	// Open file ONLY for reading (shared read access)
+	file, err := os.OpenFile(logFile.Path, os.O_RDONLY, 0)
+	if err != nil {
+		runtime.LogErrorf(lw.ctx, "Error opening file %s: %v", logFile.Path, err)
+		return
+	}
+	// IMPORTANT: Always close the file when done
+	defer file.Close()
+
+	// Seek to last known position
+	_, err = file.Seek(logFile.LastPosition, io.SeekStart)
+	if err != nil {
+		runtime.LogErrorf(lw.ctx, "Error seeking file %s: %v", logFile.Path, err)
+		return
+	}
+
+	// Read new lines with buffer limit
+	scanner := bufio.NewScanner(file)
 
 	// Set maximum token size (1MB per line)
 	const maxScanTokenSize = 1024 * 1024 // 1MB
@@ -383,7 +395,7 @@ func (lw *LogWatcher) readNewLines(logFile *LogFile) {
 
 		// Prevent reading too many lines in one go
 		if lineNum > maxLinesPerRead {
-			runtime.LogInfof(lw.ctx, "Max lines per read reached for %s, will continue on next event", logFile.Path)
+			runtime.LogInfof(lw.ctx, "Max lines per read reached for %s, will continue on next event", filepath.Base(logFile.Path))
 			break
 		}
 
@@ -415,23 +427,18 @@ func (lw *LogWatcher) readNewLines(logFile *LogFile) {
 
 	// Check for scanner errors
 	if err := scanner.Err(); err != nil {
-		// Check if it's a file locking error (common in Windows)
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "locked a portion of the file") ||
-			strings.Contains(errMsg, "being used by another process") ||
-			strings.Contains(errMsg, "access is denied") {
-			// Silently skip locked files - this is normal when the app is writing to logs
-			runtime.LogDebugf(lw.ctx, "File %s is locked by another process, will retry later", filepath.Base(logFile.Path))
-			return
-		}
-		// Log other errors
 		runtime.LogErrorf(lw.ctx, "Error scanning file %s: %v", logFile.Path, err)
 	}
 
-	// Update position
-	newPosition, _ := logFile.File.Seek(0, io.SeekCurrent)
-	logFile.LastPosition = newPosition
-	logFile.LastModTime = info.ModTime()
+	// Update position to current file pointer
+	newPosition, err := file.Seek(0, io.SeekCurrent)
+	if err == nil {
+		logFile.LastPosition = newPosition
+		logFile.LastModTime = info.ModTime()
+		logFile.LastSize = currentSize
+	}
+
+	// File is automatically closed by defer when function exits
 }
 
 // detectLogLevel attempts to detect the log level from a line

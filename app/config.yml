@@ -21,10 +21,11 @@ profiles:
           filters:
             - error
             - warning
+            - debug
           enabled: true
           format: json
 window_position:
-    x: 35
+    x: 5113
     "y": 0
-    width: 1024
-    height: 1039
+    width: 654
+    height: 1087
