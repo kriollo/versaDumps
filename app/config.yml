@@ -1,5 +1,30 @@
-server: 127.0.0.1
-port: 8001
-theme: dark
-language: es
-show_types: true
+active_profile: Default
+profiles:
+    - name: Default
+      server: localhost
+      port: 8001
+      language: es
+      log_folders:
+        - path: C:\Users\jjara\Desktop\proyectos\versaBOT\versaWYS\logs\orm.log
+          extensions:
+            - '*.log'
+            - '*.txt'
+          filters:
+            - error
+            - warning
+          enabled: true
+          format: json
+        - path: C:\Users\jjara\Desktop\proyectos\versaBOT\versaWYS\logs
+          extensions:
+            - '*.log'
+            - '*.txt'
+          filters:
+            - error
+            - warning
+          enabled: true
+          format: json
+window_position:
+    x: 35
+    "y": 0
+    width: 1024
+    height: 1039

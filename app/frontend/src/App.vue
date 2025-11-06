@@ -45,27 +45,60 @@
         >
           <Icon name="gear" />
         </button>
+        <!-- View toggle button -->
+        <button
+          class="icon-button"
+          @click="toggleLogFilesPanel"
+          :title="showLogFiles ? t('hide_logs') : t('show_logs')"
+        >
+          <Icon name="file" />
+        </button>
       </div>
     </div>
     <LineHr />
 
-    <div class="p-2.5 space-y-2.5">
-      <div v-if="logs.length === 0" class="text-center py-10 text-slate-500">
-        <p>{{ t('waiting_data') }}</p>
-        <div class="mt-4">
-            <div class="mx-auto w-full max-w-2xl h-64 md:h-80 lg:h-96 relative">
-              <img src="./assets/images/versaDumpsVisualizer.webp" alt="versaDumpVisualizer" class="block w-full h-full object-contain" />
-              <img src="./assets/images/texture.svg" alt="" class="pointer-events-none absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-80" />
+    <!-- Split View Container -->
+    <div class="split-container" :class="{ 'single-panel': !showLogFiles }">
+      <!-- Top Panel: Dumps -->
+      <div
+        class="panel dumps-panel"
+        :style="{ height: showLogFiles ? `${dumpsHeight}%` : '100%' }"
+      >
+        <div class="p-2.5 space-y-2.5">
+          <div v-if="logs.length === 0" class="text-center py-10 text-slate-500">
+            <p>{{ t('waiting_data') }}</p>
+            <div class="mt-4">
+                <div class="mx-auto w-full max-w-2xl h-64 md:h-80 lg:h-96 relative">
+                  <img src="./assets/images/versaDumpsVisualizer.webp" alt="versaDumpVisualizer" class="block w-full h-full object-contain" />
+                  <img src="./assets/images/texture.svg" alt="" class="pointer-events-none absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-80" />
+                </div>
             </div>
+          </div>
+          <LogItem
+            v-for="log in sortedLogs"
+            :key="log.id"
+            :log="log"
+            @delete="deleteLog(log.id)"
+            @copy="copyLogToClipboard"
+          />
         </div>
       </div>
-      <LogItem
-        v-for="log in sortedLogs"
-        :key="log.id"
-        :log="log"
-        @delete="deleteLog(log.id)"
-        @copy="copyLogToClipboard"
-      />
+
+      <!-- Resizer -->
+      <div
+        v-if="showLogFiles"
+        class="resizer-horizontal"
+        @mousedown="startResize"
+      ></div>
+
+      <!-- Bottom Panel: Log Files -->
+      <div
+        v-if="showLogFiles"
+        class="panel logfiles-panel"
+        :style="{ height: `${100 - dumpsHeight}%` }"
+      >
+        <LogFileViewer />
+      </div>
     </div>
 
     <ConfigModal :is-open="isConfigModalOpen" @close="closeConfigModal" @check-updates="handleCheckUpdates" />
@@ -105,6 +138,7 @@ import { EventsOn, WindowIsMinimised } from "../wailsjs/runtime/runtime";
 import ConfigModal from "./components/ConfigModal.vue";
 import Icon from "./components/Icon.vue";
 import LineHr from "./components/LineHr.vue";
+import LogFileViewer from "./components/LogFileViewer.vue";
 import LogItem from "./components/LogItem.vue";
 import UpdateNotification from "./components/UpdateNotification.vue";
 import { setLanguage, t } from "./i18n";
@@ -114,6 +148,11 @@ const currentVersion = ref(''); // Se obtiene del backend
 const hasUpdate = ref(false);
 const newVersion = ref('');
 const updateNotificationRef = ref(null);
+
+// SPLIT VIEW STATE
+const showLogFiles = ref(false);
+const dumpsHeight = ref(60); // Percentage - panel superior ocupará 60% por defecto
+const isResizing = ref(false);
 
 // Helper function to compare versions properly
 const isNewerVersion = (newVer, currentVer) => {
@@ -291,19 +330,21 @@ onMounted(async () => {
     BackendApp.GetConfig().then((cfg) => {
       if (cfg) {
         // If config includes host/port for the server, pick them up
-        // The Go struct uses `Server` and `Port` (capitalized). Support also lowercase keys.
-        if (cfg.Server) serverHost.value = cfg.Server;
-        if (cfg.Port) serverPort.value = cfg.Port;
+        // Support both capitalized (old) and lowercase (new with JSON tags) keys
+        if (cfg.server || cfg.Server) serverHost.value = cfg.server || cfg.Server;
+        if (cfg.port || cfg.Port) serverPort.value = cfg.port || cfg.Port;
 
-        if (cfg.Theme) {
-          theme.value = cfg.Theme
-          if (cfg.Theme === "dark") document.documentElement.classList.add("dark");
+        console.log('GetConfig result:', { host: serverHost.value, port: serverPort.value });
+
+        if (cfg.theme || cfg.Theme) {
+          theme.value = cfg.theme || cfg.Theme
+          if ((cfg.theme || cfg.Theme) === "dark") document.documentElement.classList.add("dark");
           else document.documentElement.classList.remove("dark");
-          localStorage.setItem("theme", cfg.Theme);
+          localStorage.setItem("theme", cfg.theme || cfg.Theme);
         }
-        if (cfg.Lang) {
+        if (cfg.language || cfg.lang || cfg.Lang) {
           // set language in frontend i18n
-          setLanguage(cfg.Lang);
+          setLanguage(cfg.language || cfg.lang || cfg.Lang);
         }
 
         // Mark config as loaded and start polling
@@ -574,8 +615,10 @@ onMounted(() => {
       }
 
       // Support both capitalized and lowercase keys from Go config
-      if (cfg.Server) serverHost.value = cfg.Server;
-      if (cfg.Port) serverPort.value = cfg.Port;
+      if (cfg.server || cfg.Server) serverHost.value = cfg.server || cfg.Server;
+      if (cfg.port || cfg.Port) serverPort.value = cfg.port || cfg.Port;
+
+      console.log('Config loaded:', { host: serverHost.value, port: serverPort.value });
 
       // Mark config as loaded and restart polling with updated config
       configLoaded.value = true;
@@ -678,6 +721,56 @@ const clearUpdateState = () => {
   localStorage.removeItem('versadumps_update_state'); // Clear any potential stored state
   console.log('Update state cleared');
 };
+
+// ========================================
+// SPLIT VIEW FUNCTIONS
+// ========================================
+
+const toggleLogFilesPanel = () => {
+  showLogFiles.value = !showLogFiles.value;
+
+  // Load log folders if opening for the first time
+  if (showLogFiles.value) {
+    loadLogFolders();
+  }
+};
+
+const loadLogFolders = async () => {
+  try {
+    const folders = await BackendApp.GetLogFolders();
+    console.log('Log folders loaded:', folders);
+  } catch (e) {
+    console.error('Error loading log folders:', e);
+  }
+};
+
+const startResize = (e) => {
+  isResizing.value = true;
+  document.addEventListener('mousemove', handleResize);
+  document.addEventListener('mouseup', stopResize);
+  e.preventDefault();
+};
+
+const handleResize = (e) => {
+  if (!isResizing.value) return;
+
+  const container = document.querySelector('.split-container');
+  if (!container) return;
+
+  const containerRect = container.getBoundingClientRect();
+  const newHeight = ((e.clientY - containerRect.top) / containerRect.height) * 100;
+
+  // Limit between 30% and 70%
+  if (newHeight >= 30 && newHeight <= 70) {
+    dumpsHeight.value = newHeight;
+  }
+};
+
+const stopResize = () => {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', handleResize);
+  document.removeEventListener('mouseup', stopResize);
+};
 </script>
 
 <style>
@@ -760,5 +853,73 @@ const clearUpdateState = () => {
 .toast-leave-to {
   opacity: 0;
   transform: translateX(100px);
+}
+
+/* Split View Styles - Horizontal Layout */
+.split-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px); /* Adjust based on header height */
+  overflow: hidden;
+}
+
+.split-container.single-panel {
+  display: block;
+}
+
+.panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: height 0.3s ease;
+}
+
+.dumps-panel {
+  min-height: 200px;
+}
+
+.logfiles-panel {
+  min-height: 200px;
+  border-top: 1px solid #cbd5e1;
+}
+
+.dark .logfiles-panel {
+  border-top-color: #475569;
+}
+
+.resizer-horizontal {
+  height: 8px;
+  background: #e2e8f0;
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.resizer-horizontal:hover {
+  background: #94a3b8;
+}
+
+.dark .resizer-horizontal {
+  background: #475569;
+}
+
+.dark .resizer-horizontal:hover {
+  background: #64748b;
+}
+
+.resizer-horizontal::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 2px;
+  background: #cbd5e1;
+  border-radius: 1px;
+}
+
+.dark .resizer-horizontal::before {
+  background: #64748b;
 }
 </style>

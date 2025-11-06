@@ -5,6 +5,133 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-11-05
+
+### ✨ Agregado
+- **Monitoreo de archivos de log**: Nueva funcionalidad completa para monitorear carpetas de archivos de log en tiempo real
+  - Gestión de carpetas con rutas personalizables
+  - Filtrado por extensiones de archivo (.log, .txt, etc.)
+  - Filtrado por patrones de nombres de archivo (errors_*, access_*, etc.)
+  - Selección de formato de log (JSON o texto plano)
+  - Edición completa de configuraciones de carpetas monitoreadas
+- **Visualizador de archivos de log**: Componente dedicado para ver contenido de archivos
+  - Vista en tiempo real con actualización automática
+  - Detección automática de formato JSON en archivos
+  - Pretty-printing de JSON con indentación de 2 espacios
+  - Resaltado de sintaxis para archivos JSON con colores diferenciados:
+    - Claves en azul (#0066cc light / #61afef dark)
+    - Strings en verde (#067d17 light / #98c379 dark)
+    - Números en rojo (#d73a49 light / #d19a66 dark)
+    - Booleanos en azul negrita (#005cc5 light / #56b6c2 dark)
+    - Valores null en morado cursiva (#6f42c1 light / #c678dd dark)
+  - Filtrado de logs en tiempo real por texto
+  - Contador de líneas totales y filtradas
+  - Botón para limpiar todos los logs
+
+### 🎨 Interfaz
+- **Panel horizontal dividido**: Nueva distribución de pantalla
+  - Panel superior (60% altura): Lista de logs de dumps HTTP
+  - Panel inferior (40% altura): Visor de archivos de log monitoreados
+  - Separador redimensionable con límites 30%-70%
+  - Cursor row-resize para indicar área de ajuste
+- **Gestión mejorada de carpetas**: Interface completa CRUD
+  - Botón de editar con ícono de lápiz
+  - Modal de edición con campos prellenados
+  - Ruta no editable en modo edición (previene inconsistencias)
+  - Badge visual que muestra el formato (TEXT/JSON)
+  - Selector de formato en modales de agregar/editar
+- **Nuevos iconos**: Agregados al sistema de iconos personalizado
+  - `file`: Ícono de documento para abrir panel de archivos
+  - `edit`: Ícono de lápiz para editar configuraciones
+  - `plus`: Ícono + para agregar nuevas carpetas
+
+### 🔧 Mejorado
+- **Backend robusto para monitoreo de archivos**:
+  - Sistema de FileWatcher con fsnotify para detección de cambios
+  - Soporte para múltiples carpetas simultáneas
+  - Reinicio automático del watcher al cambiar perfiles activos
+  - Manejo eficiente de eventos de archivo (CREATE, WRITE, REMOVE)
+  - Lectura incremental de archivos grandes
+- **Gestión de configuración expandida**:
+  - Nuevas funciones `AddLogFolder` y `UpdateLogFolder` en el backend
+  - Persistencia automática en config.yml
+  - Validación de rutas y parámetros
+  - Campo `Format` añadido a la estructura `LogFolder`
+- **Sistema de eventos mejorado**:
+  - Evento `log:file:line` para transmitir líneas de log al frontend
+  - Evento `log:file:clear` para limpiar logs del archivo actual
+  - Sincronización en tiempo real entre backend y frontend
+
+### 🔧 Técnico
+- **Estructura de datos mejorada**:
+  ```go
+  type LogFolder struct {
+      Path       string   `yaml:"path" json:"path"`
+      Extensions []string `yaml:"extensions" json:"extensions"`
+      Filters    []string `yaml:"filters,omitempty" json:"filters,omitempty"`
+      Format     string   `yaml:"format,omitempty" json:"format,omitempty"` // "text" or "json"
+  }
+  ```
+- **Funciones de backend con 5 parámetros**:
+  - `AddLogFolder(profileName, path, extensions, filters, format string)`
+  - `UpdateLogFolder(profileName, path, extensions, filters, format string)`
+- **Algoritmo de detección JSON**:
+  ```javascript
+  const tryParseJson = (line) => {
+    try {
+      const parsed = JSON.parse(line);
+      const formatted = JSON.stringify(parsed, null, 2);
+      return { isJson: true, formattedLine: formatted, coloredJson: colorizeJson(formatted) };
+    } catch (e) {
+      return { isJson: false, formattedLine: line, coloredJson: '' };
+    }
+  };
+  ```
+- **Colorización de JSON con regex**:
+  - Claves: `/(".*?")\s*:/g`
+  - Strings: `/:\s*(".*?")/g`
+  - Números: `/:\s*(\d+)/g`
+  - Booleanos: `/:\s*(true|false)/g`
+  - Null: `/:\s*(null)/g`
+- **CSS con :deep() para v-html**: Penetración de estilos en contenido renderizado dinámicamente
+- **Wails bindings regenerados**: TypeScript definitions actualizadas con firmas correctas
+
+### 📝 Traducciones
+- **Nuevas claves en i18n**:
+  - `log_format`, `format_text`, `format_json`, `format_help`
+  - `edit_log_folder`, `edit`, `path_cannot_be_changed`
+  - `error_updating_folder`, `log_folders`, `add_log_folder`
+  - `file_path`, `file_extensions`, `file_filters`
+- **Soporte completo** en español e inglés para todas las nuevas funcionalidades
+
+### 🐛 Corregido
+- **Botón de archivo invisible**: Agregado ícono `file` faltante al componente Icon.vue
+- **Layout vertical en lugar de horizontal**: Cambiado de split izquierda/derecha a arriba/abajo
+- **Error "UpdateLogFolder is not a function"**: Bindings de Wails regenerados correctamente
+- **Error de firma de función**: Parámetro `format` agregado y bindings actualizados (4 args → 5 args)
+- **JSON sin formato**: Implementado sistema completo de detección, formateo y colorización
+
+### 💡 Compatibilidad
+- **Retrocompatibilidad**: Campo `format` con valor por defecto "text" para configuraciones existentes
+- **Degradación elegante**: JSON inválido se muestra como texto plano sin errores
+- **Multi-plataforma**: Monitoreo de archivos funciona en Windows, macOS y Linux
+- **Temas adaptativos**: Colores de sintaxis JSON optimizados para modo claro y oscuro
+
+### 🚀 Performance
+- **Lectura eficiente de archivos**: Buffer de 4KB para archivos grandes
+- **Procesamiento incremental**: Solo se procesan líneas nuevas
+- **Regex optimizado**: Colorización sin impacto perceptible en rendimiento
+- **Renderizado condicional**: JSON solo se procesa si es detectado como válido
+
+### 🔧 Arquitectura
+- **Separación de responsabilidades**:
+  - `App.vue`: Layout principal con split panel horizontal
+  - `LogFileViewer.vue`: Visualización y formateo de logs de archivo
+  - `LogFoldersManager.vue`: Gestión CRUD de carpetas monitoreadas
+  - `config.go`: Estructuras de datos y persistencia
+  - `app.go`: Lógica de negocio y funciones exportadas a frontend
+  - `server.go`: FileWatcher y eventos de archivo en tiempo real
+
 ## [2.2.0] - 2025-10-28
 
 ### ✨ Agregado
