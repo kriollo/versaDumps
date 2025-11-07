@@ -5,7 +5,7 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.2] - 2025-01-XX
+## [3.0.2] - 2025-11-07
 
 ### 🔥 CRÍTICO - Solución de Permisos
 - **Ubicación del archivo de configuración movida a AppData**: Solución definitiva al problema de permisos de escritura
@@ -45,7 +45,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
   - Migración automática desde ubicación antigua (`config.yml` en directorio actual)
   - Creación automática de directorio `VersaDumps` en AppData
   - Actualización de `LoadConfig()` y `SaveConfig()` para usar nueva ubicación
-  
+
 - **Cambios en `app.go`**:
   - Validación de rutas en `AddLogFolder()` antes de guardar
   - Verificación de existencia con `os.Stat()`
@@ -116,14 +116,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
   - Acceso compartido correcto a archivos de log
 
 ### 📝 Técnico
-- **Arquitectura mejorada**: 
+- **Arquitectura mejorada**:
   - Cambio de modelo de "archivos abiertos permanentemente" a "apertura temporal bajo demanda"
   - `LogFile` ahora solo contiene metadata (Path, LastPosition, LastModTime, LastSize)
   - Método `registerFile()` reemplaza a `tailFile()` para registro sin apertura
   - Método `readNewLines()` ahora maneja todo el ciclo de vida del archivo (open/read/close)
   - Eliminación del campo `File *os.File` de la estructura `LogFile`
 
-- **Gestión de recursos**: 
+- **Gestión de recursos**:
   - Limpieza automática de recursos al detener el watcher
   - No se requiere cerrar archivos en el shutdown (no hay archivos abiertos)
   - Mejor compatibilidad con aplicaciones que escriben a los mismos archivos de log
