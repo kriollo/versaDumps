@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -55,6 +56,23 @@ func (c *Config) GetActiveProfile() *Profile {
 	return nil
 }
 
+// getConfigPath returns the path to the config file in the user's AppData directory
+func getConfigPath() (string, error) {
+	// Get user's config directory (AppData\Roaming on Windows)
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	// Create VersaDumps subdirectory
+	appConfigDir := filepath.Join(configDir, "VersaDumps")
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", err
+	}
+
+	return filepath.Join(appConfigDir, "config.yml"), nil
+}
+
 // Legacy Config struct for backward compatibility
 type LegacyConfig struct {
 	Server    string `yaml:"server"`
@@ -68,34 +86,53 @@ type LegacyConfig struct {
 // If the file doesn't exist, it creates it with default values
 // Supports backward compatibility with old config format
 func LoadConfig() (*Config, error) {
-	// Check if config.yml exists
-	if _, err := os.Stat("config.yml"); os.IsNotExist(err) {
-		// Create default configuration with a default profile
-		defaultConfig := &Config{
-			ActiveProfile: "Default",
-			Profiles: []Profile{
-				{
-					Name:       "Default",
-					Server:     "localhost",
-					Port:       9191,
-					Theme:      "dark",
-					Lang:       "en",
-					ShowTypes:  true,
-					LogFolders: []LogFolder{},
+	// Get config file path
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if config.yml exists in new location
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		// Try to migrate from old location (current directory / Program Files)
+		oldConfigPath := "config.yml"
+		if data, err := os.ReadFile(oldConfigPath); err == nil {
+			// Old config exists, try to migrate it
+			if err := os.WriteFile(configPath, data, 0644); err == nil {
+				// Migration successful, optionally delete old file
+				// We don't delete it to be safe, let user do it manually if needed
+			}
+		}
+
+		// Check again after migration attempt
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			// Create default configuration with a default profile
+			defaultConfig := &Config{
+				ActiveProfile: "Default",
+				Profiles: []Profile{
+					{
+						Name:       "Default",
+						Server:     "localhost",
+						Port:       9191,
+						Theme:      "dark",
+						Lang:       "en",
+						ShowTypes:  true,
+						LogFolders: []LogFolder{},
+					},
 				},
-			},
-		}
+			}
 
-		// Save the default configuration
-		if err := SaveConfig(defaultConfig); err != nil {
-			return nil, err
-		}
+			// Save the default configuration
+			if err := SaveConfig(defaultConfig); err != nil {
+				return nil, err
+			}
 
-		return defaultConfig, nil
+			return defaultConfig, nil
+		}
 	}
 
 	// File exists, read it
-	data, err := os.ReadFile("config.yml")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +176,14 @@ func LoadConfig() (*Config, error) {
 
 // SaveConfig writes the configuration to config.yml
 func SaveConfig(cfg *Config) error {
+	// Get config file path
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+
 	// Open file for write (truncate/create)
-	f, err := os.Create("config.yml")
+	f, err := os.Create(configPath)
 	if err != nil {
 		return err
 	}

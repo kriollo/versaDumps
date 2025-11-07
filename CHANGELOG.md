@@ -5,6 +5,74 @@ Todos los cambios notables en VersaDumps Visualizer serán documentados en este 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.2] - 2025-01-XX
+
+### 🔥 CRÍTICO - Solución de Permisos
+- **Ubicación del archivo de configuración movida a AppData**: Solución definitiva al problema de permisos de escritura
+  - El archivo `config.yml` ahora se guarda en `%APPDATA%\VersaDumps\` en lugar de `C:\Program Files\VersaDumps\`
+  - Eliminados todos los errores relacionados con permisos de escritura en Windows
+  - La aplicación ya no requiere permisos de administrador para funcionar correctamente
+  - Cada usuario de Windows tiene su propia configuración independiente
+  - Migración automática del archivo de configuración desde la ubicación antigua
+
+### 🐛 Corregido
+- **"Error adding folder"**: Solucionado el error que impedía agregar carpetas de logs
+  - Problema causado por falta de permisos de escritura en `C:\Program Files`
+  - Ahora la configuración se guarda en el directorio del usuario con permisos completos
+  - Agregada validación de rutas antes de guardar configuración
+  - Validación de que la ruta existe en el sistema
+  - Validación de que la ruta es un directorio y no un archivo
+  - Validación de permisos de acceso a la ruta especificada
+
+### ✨ Nuevo
+- **Mensajes de error mejorados**: Errores más descriptivos al agregar carpetas
+  - "La ruta especificada no existe" cuando la carpeta no se encuentra
+  - "La ruta especificada no es un directorio" cuando se intenta agregar un archivo
+  - "No se puede acceder a la ruta especificada" cuando hay problemas de permisos
+  - Mensajes traducidos tanto en español como en inglés
+
+### 🔧 Mejorado
+- **Sistema de configuración robusto**:
+  - Función `getConfigPath()` para obtener la ubicación correcta del archivo de configuración
+  - Creación automática del directorio de configuración si no existe
+  - Migración automática y transparente de configuraciones existentes
+  - Mejor manejo de errores en carga y guardado de configuración
+  - Logs informativos mostrando la ubicación del archivo de configuración en uso
+
+### 📝 Técnico
+- **Cambios en `config.go`**:
+  - Nueva función `getConfigPath()` que usa `os.UserConfigDir()`
+  - Migración automática desde ubicación antigua (`config.yml` en directorio actual)
+  - Creación automática de directorio `VersaDumps` en AppData
+  - Actualización de `LoadConfig()` y `SaveConfig()` para usar nueva ubicación
+  
+- **Cambios en `app.go`**:
+  - Validación de rutas en `AddLogFolder()` antes de guardar
+  - Verificación de existencia con `os.Stat()`
+  - Verificación de tipo de archivo con `info.IsDir()`
+  - Mensajes de error más descriptivos y específicos
+  - Logs mostrando la ubicación del archivo de configuración
+
+- **Cambios en frontend**:
+  - Detección inteligente de tipos de error en `LogFoldersManager.vue`
+  - Mapeo de errores del backend a mensajes de traducción apropiados
+  - Nuevas claves de traducción en `es.js` y `en.js`
+
+### 📚 Documentación
+- **Guía de migración**: Nuevo archivo `MIGRATION.md` con instrucciones detalladas
+  - Explicación del cambio de ubicación del archivo de configuración
+  - Instrucciones para verificar la migración
+  - Solución de problemas comunes
+  - Guía de respaldo y restauración de configuración
+
+### 💡 Notas de Actualización
+- **Acción requerida**: Ninguna, la migración es automática
+- **Ubicación antigua**: `C:\Program Files\VersaDumps\config.yml` (solo lectura)
+- **Ubicación nueva**: `%APPDATA%\VersaDumps\config.yml` (lectura/escritura)
+- **Compatibilidad**: El archivo antiguo se mantiene intacto como respaldo
+
+---
+
 ## [3.0.1] - 2025-11-06
 
 ### 🐛 Corregido

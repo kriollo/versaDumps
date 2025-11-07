@@ -39,12 +39,13 @@ func (a *App) startup(ctx context.Context) {
 	// Load config (will create with defaults if it doesn't exist)
 	cfg, err := LoadConfig()
 	if err != nil {
-		runtime.LogErrorf(ctx, "Failed to load or create config.yml: %v", err)
+		runtime.LogErrorf(ctx, "Failed to load or create config: %v", err)
 		return
-	} else if _, err := os.Stat("config.yml"); os.IsNotExist(err) {
-		// Config was just created with defaults
-		runtime.LogInfof(ctx, "Created config.yml with default values")
 	}
+
+	// Get config path for logging
+	configPath, _ := getConfigPath()
+	runtime.LogInfof(ctx, "Using config file: %s", configPath)
 
 	// Get active profile
 	activeProfile := cfg.GetActiveProfile()
@@ -530,6 +531,19 @@ func (a *App) AddLogFolder(profileName string, path string, extensions []string,
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err
+	}
+
+	// Validate that the path exists and is a directory
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("the path '%s' does not exist", path)
+		}
+		return fmt.Errorf("error accessing path '%s': %v", path, err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("'%s' is not a directory", path)
 	}
 
 	// Find profile
