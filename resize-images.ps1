@@ -50,11 +50,11 @@ function Resize-Image {
 # Definir tamaños objetivo para cada imagen
 $artPath = "c:\Users\jjara\Desktop\proyectos\versaDumps\art"
 
-# Redimensionar cada imagen
-Resize-Image -InputPath "$artPath\versaDumpsVisualizer.png" -OutputPath "$artPath\versaDumpsVisualizer.png" -MaxWidth 500
-Resize-Image -InputPath "$artPath\visualizerExample.png" -OutputPath "$artPath\visualizerExample.png" -MaxWidth 600
-Resize-Image -InputPath "$artPath\visualizerExampleConfig1.png" -OutputPath "$artPath\visualizerExampleConfig1.png" -MaxWidth 500
-Resize-Image -InputPath "$artPath\visualizerExampleConfig2.png" -OutputPath "$artPath\visualizerExampleConfig2.png" -MaxWidth 500
-Resize-Image -InputPath "$artPath\visualizerExampleConfig3.png" -OutputPath "$artPath\visualizerExampleConfig3.png" -MaxWidth 500
+# Redimensionar cada imagen - tamaños más pequeños para GitHub
+Resize-Image -InputPath "$artPath\versaDumpsVisualizer.png" -OutputPath "$artPath\versaDumpsVisualizer.png" -MaxWidth 350
+Resize-Image -InputPath "$artPath\visualizerExample.png" -OutputPath "$artPath\visualizerExample.png" -MaxWidth 400
+Resize-Image -InputPath "$artPath\visualizerExampleConfig1.png" -OutputPath "$artPath\visualizerExampleConfig1.png" -MaxWidth 350
+Resize-Image -InputPath "$artPath\visualizerExampleConfig2.png" -OutputPath "$artPath\visualizerExampleConfig2.png" -MaxWidth 350
+Resize-Image -InputPath "$artPath\visualizerExampleConfig3.png" -OutputPath "$artPath\visualizerExampleConfig3.png" -MaxWidth 350
 
 Write-Host "`n✓ Todas las imágenes han sido redimensionadas exitosamente" -ForegroundColor Green
