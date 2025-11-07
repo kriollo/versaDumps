@@ -1,0 +1,23 @@
+{
+    "name": "jjara/php-back",
+    "require": {
+        "versadumps-php/versadumps-php": "^2.2"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/kriollo/versadumps-php"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Jjara\\PhpBack\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "kriollo",
+            "email": "kriollone@gmail.com"
+        }
+    ]
+}

@@ -1,0 +1,121 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "376d147b6dc5aefe87e1e7b8092b6021",
+    "packages": [
+        {
+            "name": "versadumps-php/versadumps-php",
+            "version": "2.2.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/kriollo/versadumps-php.git",
+                "reference": "045958e528f1734d646a999aa0e9c7015ed43cc8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/kriollo/versadumps-php/zipball/045958e528f1734d646a999aa0e9c7015ed43cc8",
+                "reference": "045958e528f1734d646a999aa0e9c7015ed43cc8",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.40",
+                "laravel/pint": "^1.15",
+                "rector/rector": "^1.0"
+            },
+            "bin": [
+                "bin/versadumps-init"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Versadumps\\Versadumps\\": "src/"
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "scripts": {
+                "versadumps-init": [
+                    "Versadumps\\Versadumps\\Init::run"
+                ],
+                "cs:check": [
+                    "php-cs-fixer fix --dry-run --diff --ansi --config=.php-cs-fixer.dist.php"
+                ],
+                "cs:fix": [
+                    "php-cs-fixer fix --ansi --config=.php-cs-fixer.dist.php"
+                ],
+                "rector:check": [
+                    "rector process --dry-run --ansi"
+                ],
+                "rector:fix": [
+                    "rector process --ansi"
+                ],
+                "pint:check": [
+                    "pint --test --verbose"
+                ],
+                "pint:fix": [
+                    "pint"
+                ],
+                "check": [
+                    "@cs:check",
+                    "@rector:check",
+                    "@pint:check"
+                ],
+                "fix": [
+                    "@cs:fix",
+                    "@rector:fix",
+                    "@pint:fix"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Jorge Jara",
+                    "email": "jjara@wys.cl",
+                    "homepage": "https://github.com/kriollo"
+                }
+            ],
+            "description": "Librería PHP moderna para enviar dumps a versaDumps Visualizer con Builder Pattern, métodos semánticos, stack traces y 10 colores predefinidos",
+            "keywords": [
+                "builder-pattern",
+                "debug",
+                "debugging",
+                "dumps",
+                "logger",
+                "semantic-methods",
+                "stack-trace",
+                "var_dump",
+                "visualizer"
+            ],
+            "support": {
+                "issues": "https://github.com/kriollo/versaDumps/issues",
+                "source": "https://github.com/kriollo/versaDumps"
+            },
+            "funding": [
+                {
+                    "type": "github",
+                    "url": "https://github.com/sponsors/kriollo"
+                }
+            ],
+            "time": "2025-10-30T02:36:08+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": [],
+    "plugin-api-version": "2.6.0"
+}
