@@ -1,5 +1,7 @@
 # VersaDumps Visualizer
 
+[English](README.en.md) | **Español**
+
 <p align="center">
   <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" style="max-width:320px; width:100%; height:auto;" />
 </p>
