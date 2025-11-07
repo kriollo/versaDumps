@@ -3,7 +3,7 @@
 **English** | [Español](README.md)
 
 <p align="center">
-  <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" style="max-width:320px; width:100%; height:auto;" />
+  <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" />
 </p>
 
 ## 📋 Description
@@ -50,7 +50,7 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 - 📝 **Changelog** visible in the application
 
 <p align="center">
-  <img src="art/visualizerExample.png" alt="VersaDumps Example" style="max-width:400px; width:100%; height:auto;" />
+  <img src="art/visualizerExample.png" alt="VersaDumps Example" />
 </p>
 
 ### 📸 Screenshots
@@ -59,15 +59,15 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 
 **Profile Configuration**
 
-<img src="art/visualizerExampleConfig1.png" alt="Configuration - Profiles" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig1.png" alt="Configuration - Profiles" />
 
 **Log Folder Management**
 
-<img src="art/visualizerExampleConfig2.png" alt="Configuration - Log Folders" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig2.png" alt="Configuration - Log Folders" />
 
 **Theme and Language Customization**
 
-<img src="art/visualizerExampleConfig3.png" alt="Configuration - Theme and Language" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig3.png" alt="Configuration - Theme and Language" />
 
 </div>
 

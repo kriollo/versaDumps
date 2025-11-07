@@ -3,7 +3,7 @@
 [English](README.en.md) | **Español**
 
 <p align="center">
-  <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" style="max-width:320px; width:100%; height:auto;" />
+  <img src="art/versaDumpsVisualizer.png" alt="VersaDumps Logo" />
 </p>
 
 ## 📋 Descripción
@@ -50,7 +50,7 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 - 📝 **Changelog** visible en la aplicación
 
 <p align="center">
-  <img src="art/visualizerExample.png" alt="VersaDumps Example" style="max-width:400px; width:100%; height:auto;" />
+  <img src="art/visualizerExample.png" alt="VersaDumps Example" />
 </p>
 
 ### 📸 Capturas de pantalla
@@ -59,15 +59,15 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 
 **Configuración de Perfiles**
 
-<img src="art/visualizerExampleConfig1.png" alt="Configuración - Perfiles" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig1.png" alt="Configuración - Perfiles" />
 
 **Gestión de Carpetas de Log**
 
-<img src="art/visualizerExampleConfig2.png" alt="Configuración - Carpetas de Log" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig2.png" alt="Configuración - Carpetas de Log" />
 
 **Personalización de Tema e Idioma**
 
-<img src="art/visualizerExampleConfig3.png" alt="Configuración - Tema e Idioma" style="max-width:320px; width:100%; height:auto;" />
+<img src="art/visualizerExampleConfig3.png" alt="Configuración - Tema e Idioma" />
 
 </div>
 
