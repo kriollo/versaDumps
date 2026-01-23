@@ -13,6 +13,7 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 ## ✨ Características principales
 
 ### 🎯 Core Features
+
 - 🌓 **Temas claro y oscuro** con soporte persistente
 - 🌍 **Internacionalización (i18n)**: Soporte multiidioma (Español e Inglés)
 - 👤 **Perfiles múltiples**: Gestiona diferentes configuraciones y cambia entre ellas fácilmente
@@ -21,9 +22,10 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 - 📱 **Diseño responsive** con enfoque mobile-first
 
 ### 📂 Monitoreo de Archivos de Log
+
 - 📁 **Monitoreo de carpetas** en tiempo real con fsnotify
 - 🔍 **Filtrado avanzado**:
-  - Por extensión de archivo (*.log, *.txt, etc.)
+  - Por extensión de archivo (_.log, _.txt, etc.)
   - Por nivel de log (error, warning, info, debug, success)
   - Por contenido de texto en tiempo real
 - 📝 **Soporte de formatos**: JSON y texto plano
@@ -33,6 +35,7 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 - 🗑️ **Gestión completa**: Limpiar logs, abrir carpetas, editar configuración
 
 ### 🖥️ Interfaz de Usuario
+
 - 🔲 **Vista dividida redimensionable**:
   - Panel superior: Dumps HTTP (60% altura por defecto)
   - Panel inferior: Visor de archivos de log (40% altura por defecto)
@@ -44,6 +47,7 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 - 💾 **Posición de ventana guardada** (restaura tamaño y posición al reiniciar)
 
 ### 🔄 Sistema de Actualizaciones
+
 - ✨ **Actualizaciones automáticas** desde GitHub Releases
 - 📥 **Descarga e instalación** de nuevas versiones
 - 🔔 **Notificaciones** de actualizaciones disponibles
@@ -74,17 +78,20 @@ VersaDumps Visualizer es una aplicación de escritorio multiplataforma para visu
 ## 🧰 Stack tecnológico
 
 ### Backend
+
 - **Go** 1.21+
 - **Wails v2** - Framework de aplicaciones de escritorio
 - **fsnotify** - Monitoreo de sistema de archivos
 - **yaml.v3** - Manejo de configuración
 
 ### Frontend
+
 - **Vue.js 3** - Framework JavaScript progresivo
 - **Tailwind CSS** - Framework de CSS utility-first
 - **Vite** - Herramienta de build ultrarrápida
 
 ### Herramientas
+
 - **PowerShell** - Scripts de automatización y setup
 - **NSIS** - Instalador para Windows
 - **GitHub Actions** - CI/CD automatizado
@@ -256,6 +263,7 @@ window_position:
 ### Desarrollo
 
 1. Navega al directorio `app`
+
    ```bash
    cd app
    ```
@@ -264,6 +272,7 @@ window_position:
    ```bash
    wails dev
    ```
+
    - Proporciona recarga en caliente
    - Ideal para desarrollo activo
    - Devtools del navegador disponibles
@@ -271,14 +280,17 @@ window_position:
 ### Producción
 
 1. Navega al directorio `app`
+
    ```bash
    cd app
    ```
 
 2. Construye la aplicación
+
    ```bash
    wails build
    ```
+
    - Crea el ejecutable final y autónomo en `app/build/bin`
 
 3. Para crear el instalador de Windows (desde la raíz del proyecto)
@@ -377,6 +389,7 @@ Para más información, consulta el repositorio [versadumps-php](https://github.
 ### Sistema de iconos
 
 La aplicación incluye un sistema de iconos personalizado:
+
 - `gear` - Configuración
 - `trash` - Eliminar
 - `sun` / `moon` - Cambio de tema
@@ -395,11 +408,12 @@ La aplicación verifica automáticamente actualizaciones desde GitHub:
 - Changelog visible antes de actualizar
 - Soporte multiplataforma (Windows, macOS, Linux)
 
-**Versión actual**: 3.0.1
+**Versión actual**: v3.1.0
 
 ## 🌍 Internacionalización
 
 Idiomas soportados:
+
 - 🇪🇸 Español (es)
 - 🇬🇧 Inglés (en)
 
@@ -489,6 +503,7 @@ Las contribuciones son bienvenidas. Por favor:
 5. Abre un Pull Request
 
 Por favor, asegúrate de:
+
 - Seguir las mejores prácticas de código
 - Añadir pruebas para nuevas funcionalidades
 - Actualizar la documentación correspondiente
@@ -509,6 +524,7 @@ Este proyecto está licenciado bajo la [Licencia MIT](LICENSE).
 ## 👨‍💻 Autor
 
 **kriollo**
+
 - Email: kriollone@gmail.com
 - GitHub: [@kriollo](https://github.com/kriollo)
 

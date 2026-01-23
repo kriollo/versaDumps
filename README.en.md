@@ -13,6 +13,7 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 ## ✨ Main Features
 
 ### 🎯 Core Features
+
 - 🌓 **Light and dark themes** with persistent support
 - 🌍 **Internationalization (i18n)**: Multi-language support (Spanish and English)
 - 👤 **Multiple profiles**: Manage different configurations and switch between them easily
@@ -21,9 +22,10 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 - 📱 **Responsive design** with mobile-first approach
 
 ### 📂 Log File Monitoring
+
 - 📁 **Real-time folder monitoring** with fsnotify
 - 🔍 **Advanced filtering**:
-  - By file extension (*.log, *.txt, etc.)
+  - By file extension (_.log, _.txt, etc.)
   - By log level (error, warning, info, debug, success)
   - By text content in real-time
 - 📝 **Format support**: JSON and plain text
@@ -33,6 +35,7 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 - 🗑️ **Complete management**: Clear logs, open folders, edit configuration
 
 ### 🖥️ User Interface
+
 - 🔲 **Resizable split view**:
   - Top panel: HTTP Dumps (60% height by default)
   - Bottom panel: Log file viewer (40% height by default)
@@ -44,6 +47,7 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 - 💾 **Saved window position** (restores size and position on restart)
 
 ### 🔄 Update System
+
 - ✨ **Automatic updates** from GitHub Releases
 - 📥 **Download and installation** of new versions
 - 🔔 **Notifications** for available updates
@@ -74,17 +78,20 @@ VersaDumps Visualizer is a cross-platform desktop application for visualizing an
 ## 🧰 Technology Stack
 
 ### Backend
+
 - **Go** 1.21+
 - **Wails v2** - Desktop application framework
 - **fsnotify** - File system monitoring
 - **yaml.v3** - Configuration handling
 
 ### Frontend
+
 - **Vue.js 3** - Progressive JavaScript framework
 - **Tailwind CSS** - Utility-first CSS framework
 - **Vite** - Ultra-fast build tool
 
 ### Tools
+
 - **PowerShell** - Automation and setup scripts
 - **NSIS** - Windows installer
 - **GitHub Actions** - Automated CI/CD
@@ -257,6 +264,7 @@ window_position:
 ### Development
 
 1. Navigate to the `app` directory
+
    ```bash
    cd app
    ```
@@ -265,6 +273,7 @@ window_position:
    ```bash
    wails dev
    ```
+
    - Provides hot reload
    - Ideal for active development
    - Browser devtools available
@@ -272,14 +281,17 @@ window_position:
 ### Production
 
 1. Navigate to the `app` directory
+
    ```bash
    cd app
    ```
 
 2. Build the application
+
    ```bash
    wails build
    ```
+
    - Creates the final standalone executable in `app/build/bin`
 
 3. To create the Windows installer (from project root)
@@ -378,6 +390,7 @@ For more information, see the [versadumps-php](https://github.com/kriollo/versad
 ### Icon System
 
 The application includes a custom icon system:
+
 - `gear` - Settings
 - `trash` - Delete
 - `sun` / `moon` - Theme toggle
@@ -396,11 +409,12 @@ The application automatically checks for updates from GitHub:
 - Changelog visible before updating
 - Cross-platform support (Windows, macOS, Linux)
 
-**Current version**: 3.0.1
+**Current version**: v3.1.0
 
 ## 🌍 Internationalization
 
 Supported languages:
+
 - 🇪🇸 Spanish (es)
 - 🇬🇧 English (en)
 
@@ -490,6 +504,7 @@ Contributions are welcome. Please:
 5. Open a Pull Request
 
 Please make sure to:
+
 - Follow code best practices
 - Add tests for new features
 - Update corresponding documentation
@@ -510,6 +525,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## 👨‍💻 Author
 
 **kriollo**
+
 - Email: kriollone@gmail.com
 - GitHub: [@kriollo](https://github.com/kriollo)
 
