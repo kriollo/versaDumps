@@ -639,6 +639,56 @@ onMounted(() => {
             // ignore
         }
     });
+
+    // Listen for profile switches
+    EventsOn("profileSwitched", async (cfgJson) => {
+        try {
+            console.log("=== PROFILE SWITCHED EVENT RECEIVED ===");
+            const cfg = JSON.parse(cfgJson);
+            console.log("New profile config:", cfg);
+
+            // Update server configuration
+            const oldHost = serverHost.value;
+            const oldPort = serverPort.value;
+
+            if (cfg.server || cfg.Server) serverHost.value = cfg.server || cfg.Server;
+            if (cfg.port || cfg.Port) serverPort.value = cfg.port || cfg.Port;
+
+            // Update theme
+            if (cfg.theme) {
+                theme.value = cfg.theme;
+                if (cfg.theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                } else {
+                    document.documentElement.classList.remove("dark");
+                }
+                localStorage.setItem("theme", cfg.theme);
+                console.log("Theme updated to:", cfg.theme);
+            }
+
+            // Update language
+            if (cfg.language || cfg.lang) {
+                const lang = cfg.language || cfg.lang;
+                setLanguage(lang);
+                console.log("Language updated to:", lang);
+            }
+
+            // Restart server polling if host/port changed
+            if (oldHost !== serverHost.value || oldPort !== serverPort.value) {
+                console.log(
+                    `Server config changed: ${oldHost}:${oldPort} -> ${serverHost.value}:${serverPort.value}`,
+                );
+                startHealthPolling();
+            }
+
+            // Show success message
+            showToastMessage(t.value("profile_switched") || "Perfil cambiado exitosamente");
+
+            console.log("✅ Profile switched successfully");
+        } catch (e) {
+            console.error("Error handling profileSwitched event:", e);
+        }
+    });
 });
 
 const deleteLog = (id) => {

@@ -43,6 +43,8 @@ export default {
     profile: "Profile",
     profiles: "Profiles",
     active_profile: "Active Profile",
+    select_profile: "Select Profile",
+    activate_profile: "Activate Profile",
     create_profile: "Create Profile",
     delete_profile: "Delete Profile",
     switch_profile: "Switch Profile",

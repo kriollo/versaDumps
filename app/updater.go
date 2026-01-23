@@ -13,7 +13,7 @@ import (
 )
 
 // Version actual de la aplicación
-const CurrentVersion = "3.0.2"
+const CurrentVersion = "3.1.0"
 
 // GitHubRelease estructura para parsear la respuesta de GitHub API
 type GitHubRelease struct {

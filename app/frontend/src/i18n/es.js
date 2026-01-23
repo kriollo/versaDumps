@@ -46,6 +46,8 @@ export default {
     profile: "Perfil",
     profiles: "Perfiles",
     active_profile: "Perfil Activo",
+    select_profile: "Seleccionar Perfil",
+    activate_profile: "Activar Perfil",
     create_profile: "Crear Perfil",
     delete_profile: "Eliminar Perfil",
     switch_profile: "Cambiar Perfil",

@@ -467,15 +467,15 @@ func (a *App) SwitchProfile(name string) error {
 	}
 
 	// Check if profile exists
-	found := false
-	for _, p := range cfg.Profiles {
-		if p.Name == name {
-			found = true
+	var newProfile *Profile
+	for i := range cfg.Profiles {
+		if cfg.Profiles[i].Name == name {
+			newProfile = &cfg.Profiles[i]
 			break
 		}
 	}
 
-	if !found {
+	if newProfile == nil {
 		return fmt.Errorf("profile '%s' not found", name)
 	}
 
@@ -485,8 +485,26 @@ func (a *App) SwitchProfile(name string) error {
 		return err
 	}
 
+	// Emit the new active profile to frontend so it can update immediately
+	cfgBytes, _ := json.Marshal(newProfile)
+	runtime.EventsEmit(a.ctx, "profileSwitched", string(cfgBytes))
+
 	// Restart HTTP server with new profile settings
-	return a.RestartHTTPServer()
+	if err := a.RestartHTTPServer(); err != nil {
+		return err
+	}
+
+	// Restart log watcher with new profile's log folders
+	if len(newProfile.LogFolders) > 0 {
+		if err := a.RestartLogWatcher(); err != nil {
+			runtime.LogErrorf(a.ctx, "Error restarting log watcher after profile switch: %v", err)
+		}
+	} else {
+		// Stop log watcher if new profile has no log folders
+		a.StopLogWatcher()
+	}
+
+	return nil
 }
 
 // UpdateProfile updates an existing profile

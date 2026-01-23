@@ -56,10 +56,13 @@ func (c *Config) GetActiveProfile() *Profile {
 	return nil
 }
 
+// ConfigDirFunc is a variable that can be overridden in tests
+var ConfigDirFunc = os.UserConfigDir
+
 // getConfigPath returns the path to the config file in the user's AppData directory
 func getConfigPath() (string, error) {
 	// Get user's config directory (AppData\Roaming on Windows)
-	configDir, err := os.UserConfigDir()
+	configDir, err := ConfigDirFunc()
 	if err != nil {
 		return "", err
 	}

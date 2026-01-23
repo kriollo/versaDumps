@@ -94,16 +94,33 @@
         <div v-show="activeTab === 'profiles'">
           <!-- Profile Selector -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ t('active_profile') }}</label>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ t('select_profile') }}</label>
             <select
               v-model="selectedProfile"
-              @change="onProfileChange"
               class="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             >
               <option v-for="profile in profiles" :key="profile.name || profile.Name" :value="profile.name || profile.Name">
-                {{ profile.name || profile.Name }}
+                {{ profile.name || profile.Name }}{{ getActiveProfileIndicator(profile.name || profile.Name) }}
               </option>
             </select>
+          </div>
+
+          <!-- Activate Profile Button -->
+          <div class="mt-4" v-if="selectedProfile && !isActiveProfile(selectedProfile)">
+            <button
+              @click="onProfileChange"
+              class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center justify-center gap-2"
+            >
+              <Icon name="check" class="w-4 h-4" />
+              {{ t('activate_profile') }}: {{ selectedProfile }}
+            </button>
+          </div>
+          
+          <!-- Current Active Profile Indicator -->
+          <div class="mt-2" v-if="selectedProfile && isActiveProfile(selectedProfile)">
+            <div class="px-4 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 rounded-md text-center font-medium">
+              ✓ {{ t('active_profile') }}
+            </div>
           </div>
 
           <!-- Profile Actions -->
@@ -215,8 +232,9 @@
 </template>
 
 <script setup>
-import { computed, defineEmits, defineProps, onMounted, ref, watch } from 'vue';
+import { computed, defineEmits, defineProps, onMounted, onUnmounted, ref, watch } from 'vue';
 import * as BackendApp from '../../wailsjs/go/main/App';
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { currentLanguage, setLanguage, t } from '../i18n';
 import Icon from './Icon.vue';
 import LogFoldersManager from './LogFoldersManager.vue';
@@ -249,12 +267,23 @@ const selectedShowTypes = ref(false);
 // Profile Management
 const profiles = ref([]);
 const selectedProfile = ref('');
+const activeProfileName = ref(''); // Track the actual active profile from backend
 const currentProfile = computed(() => {
   return profiles.value.find(p => (p.name || p.Name) === selectedProfile.value);
 });
 const showCreateProfileModal = ref(false);
 const newProfileName = ref('');
 const copyCurrentSettings = ref(true);
+
+// Helper to check if a profile is the active one
+const isActiveProfile = (profileName) => {
+  return profileName === activeProfileName.value;
+};
+
+// Helper to show indicator for active profile
+const getActiveProfileIndicator = (profileName) => {
+  return isActiveProfile(profileName) ? ' ✓' : '';
+};
 
 // Load profiles from backend
 const loadProfiles = async () => {
@@ -269,27 +298,34 @@ const loadProfiles = async () => {
 
     // Get active profile from config
     const config = await BackendApp.GetConfig();
-    const activeProfileName = config?.active_profile || config?.ActiveProfile;
+    const backendActiveProfile = config?.active_profile || config?.ActiveProfile;
 
-    if (activeProfileName) {
-      selectedProfile.value = activeProfileName;
-      console.log('Active profile:', activeProfileName);
-    } else if (profiles.value.length > 0) {
-      // If no active profile, select the first one
-      selectedProfile.value = profiles.value[0].name || profiles.value[0].Name;
-      console.log('No active profile, selecting first:', selectedProfile.value);
+    // Store the active profile name
+    activeProfileName.value = backendActiveProfile || '';
+    console.log('Backend active profile:', backendActiveProfile);
+
+    // Only auto-select if selectedProfile is empty (first load)
+    if (!selectedProfile.value) {
+      if (backendActiveProfile) {
+        selectedProfile.value = backendActiveProfile;
+        console.log('Initial selection: active profile', backendActiveProfile);
+      } else if (profiles.value.length > 0) {
+        // If no active profile, select the first one
+        selectedProfile.value = profiles.value[0].name || profiles.value[0].Name;
+        console.log('Initial selection: first profile', selectedProfile.value);
+      }
     }
 
-    // Load active profile settings into form
+    // Load selected profile settings into form
     if (selectedProfile.value) {
-      const active = profiles.value.find(p => (p.name || p.Name) === selectedProfile.value);
-      if (active) {
-        selectedServer.value = active.server || active.Server || 'localhost';
-        selectedPort.value = active.port || active.Port || 9191;
-        selectedLanguage.value = active.language || active.Language || 'es';
-        selectedShowTypes.value = active.show_types !== undefined ? active.show_types : (active.ShowTypes || false);
-        const logFoldersCount = (active.log_folders || active.LogFolders)?.length || 0;
-        console.log('Active profile log folders:', logFoldersCount);
+      const selected = profiles.value.find(p => (p.name || p.Name) === selectedProfile.value);
+      if (selected) {
+        selectedServer.value = selected.server || selected.Server || 'localhost';
+        selectedPort.value = selected.port || selected.Port || 9191;
+        selectedLanguage.value = selected.language || selected.Language || 'es';
+        selectedShowTypes.value = selected.show_types !== undefined ? selected.show_types : (selected.ShowTypes || false);
+        const logFoldersCount = (selected.log_folders || selected.LogFolders)?.length || 0;
+        console.log('Selected profile log folders:', logFoldersCount);
       }
     }
   } catch (e) {
@@ -362,10 +398,20 @@ const confirmDeleteProfile = async () => {
 // Switch to different profile
 const onProfileChange = async () => {
   try {
+    console.log('Activating profile:', selectedProfile.value);
     await BackendApp.SwitchProfile(selectedProfile.value);
+    
+    // Update the active profile name locally
+    activeProfileName.value = selectedProfile.value;
+    
+    // Reload profiles to ensure sync with backend
     await loadProfiles();
-    const message = `${t.value('profile_switched')}: ${selectedProfile.value}`;
-    alert(message);
+    
+    // The backend will emit 'profileSwitched' event which App.vue will handle
+    console.log('Profile activated successfully:', selectedProfile.value);
+    
+    // Show success message without blocking (remove alert)
+    // The profileSwitched event in App.vue will show a toast message
   } catch (err) {
     console.error('Error switching profile:', err);
     const errorMsg = `${t.value('error')}: ${err}`;
@@ -445,6 +491,20 @@ watch(() => props.isOpen, (newVal) => {
   }
 });
 
+// Watch for profile selection changes to update form fields
+watch(selectedProfile, (newProfileName) => {
+  if (!newProfileName) return;
+  
+  const profile = profiles.value.find(p => (p.name || p.Name) === newProfileName);
+  if (profile) {
+    console.log('Profile selection changed to:', newProfileName, profile);
+    selectedServer.value = profile.server || profile.Server || 'localhost';
+    selectedPort.value = profile.port || profile.Port || 9191;
+    selectedLanguage.value = profile.language || profile.Language || 'es';
+    selectedShowTypes.value = profile.show_types !== undefined ? profile.show_types : (profile.ShowTypes || false);
+  }
+});
+
 // Obtener valores iniciales desde backend si está disponible
 try {
   BackendApp.GetConfig().then((cfg) => {
@@ -467,5 +527,15 @@ try {
 // Load profiles on mount
 onMounted(async () => {
   await loadProfiles();
+  
+  // Listen for profile switches to refresh the profile list
+  EventsOn('profileSwitched', async () => {
+    console.log('[ConfigModal] Profile switched event received, reloading profiles');
+    await loadProfiles();
+  });
+});
+
+onUnmounted(() => {
+  EventsOff('profileSwitched');
 });
 </script>

@@ -72,26 +72,46 @@ func (lw *LogWatcher) Start(folders []LogFolder) error {
 		return fmt.Errorf("log watcher is already running")
 	}
 
+	if len(folders) == 0 {
+		runtime.LogInfof(lw.ctx, "No log folders configured, log watcher will not start")
+		return nil
+	}
+
 	lw.folders = folders
 	lw.running = true
 
+	runtime.LogInfof(lw.ctx, "Starting log watcher with %d folders", len(folders))
+
 	// Add all folders and their files to the watcher
+	enabledCount := 0
 	for _, folder := range folders {
 		if !folder.Enabled {
+			runtime.LogInfof(lw.ctx, "Skipping disabled folder: %s", folder.Path)
 			continue
 		}
+
+		runtime.LogInfof(lw.ctx, "Adding folder: %s (extensions: %v, format: %s)",
+			folder.Path, folder.Extensions, folder.Format)
 
 		if err := lw.addFolder(folder); err != nil {
 			runtime.LogErrorf(lw.ctx, "Error adding folder %s: %v", folder.Path, err)
 			continue
 		}
+		enabledCount++
+	}
+
+	if enabledCount == 0 {
+		runtime.LogWarningf(lw.ctx, "No enabled log folders were successfully added")
+		lw.running = false
+		return fmt.Errorf("no enabled log folders available")
 	}
 
 	// Start the event loop in a goroutine
 	lw.wg.Add(1)
 	go lw.eventLoop()
 
-	runtime.LogInfof(lw.ctx, "Log watcher started, monitoring %d folders", len(folders))
+	runtime.LogInfof(lw.ctx, "Log watcher started successfully, monitoring %d enabled folders with %d files",
+		enabledCount, len(lw.files))
 	return nil
 }
 
@@ -129,7 +149,10 @@ func (lw *LogWatcher) addFolder(folder LogFolder) error {
 	// Check if folder exists
 	info, err := os.Stat(folder.Path)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return fmt.Errorf("folder does not exist: %s", folder.Path)
+		}
+		return fmt.Errorf("error accessing folder %s: %v", folder.Path, err)
 	}
 
 	if !info.IsDir() {
@@ -138,21 +161,31 @@ func (lw *LogWatcher) addFolder(folder LogFolder) error {
 
 	// Add the folder to the watcher
 	if err := lw.watcher.Add(folder.Path); err != nil {
-		return err
+		return fmt.Errorf("failed to watch folder %s: %v", folder.Path, err)
 	}
+
+	runtime.LogInfof(lw.ctx, "Successfully added folder to watcher: %s", folder.Path)
 
 	// Find all matching files in the folder
 	files, err := lw.findMatchingFiles(folder)
 	if err != nil {
-		return err
+		return fmt.Errorf("error finding files in %s: %v", folder.Path, err)
 	}
 
+	runtime.LogInfof(lw.ctx, "Found %d matching files in folder %s", len(files), folder.Path)
+
 	// Register each file for monitoring (but don't open them)
+	registeredCount := 0
 	for _, filePath := range files {
 		if err := lw.registerFile(filePath); err != nil {
 			runtime.LogErrorf(lw.ctx, "Error registering file %s: %v", filePath, err)
+			continue
 		}
+		registeredCount++
 	}
+
+	runtime.LogInfof(lw.ctx, "Successfully registered %d/%d files from folder %s",
+		registeredCount, len(files), folder.Path)
 
 	return nil
 }
