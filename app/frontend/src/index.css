@@ -1,3 +1,54 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ensure select elements have readable contrast in both light and dark themes */
+select {
+  @apply w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply bg-white text-slate-800 border-slate-300;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #ffffff !important;
+  color: #1f2937 !important; /* slate-800 */
+  -webkit-text-fill-color: #1f2937 !important;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 1rem) calc(1em + 2px), calc(100% - .75rem) calc(1em + 2px);
+  background-size: .45rem .45rem, .45rem .45rem;
+  background-repeat: no-repeat;
+}
+
+.dark select {
+  @apply bg-slate-700 text-slate-100 border-slate-600;
+  background-color: #0f172a !important; /* slate-800/900 darker fallback */
+  color: #f8fafc !important; /* slate-100 */
+  -webkit-text-fill-color: #f8fafc !important;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 1rem) calc(1em + 2px), calc(100% - .75rem) calc(1em + 2px);
+  background-size: .45rem .45rem, .45rem .45rem;
+  background-repeat: no-repeat;
+}
+
+/* Ensure option elements also have proper background/text in dropdowns */
+select option {
+  @apply bg-white text-slate-800;
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+.dark select option {
+  @apply bg-slate-700 text-slate-100;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Extra overrides for WebKit/GTK where native styling may persist */
+select::-ms-expand {
+  display: none; /* hide IE arrow */
+}
+select:-webkit-autofill,
+select:-internal-autofill-selected {
+  -webkit-text-fill-color: inherit !important;
+}
+
+/* Fallback highly-specific rules if UA styles still win */
+html body select { background-color: inherit !important; color: inherit !important; }

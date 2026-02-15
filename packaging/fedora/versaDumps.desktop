@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=VersaDumps
+Comment=VersaDumps Visualizer
+Exec=/usr/bin/versaDumps
+Icon=versaDumps
+Type=Application
+Categories=Utility;Development;
+Terminal=false
