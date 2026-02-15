@@ -1,71 +1,113 @@
-#!/bin/bash
-# Script para configurar iconos multiplataforma
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "🔧 Configurando iconos para todas las plataformas..."
+# setup-icons.sh [source-png]
+# If no argument is provided, defaults to app/build/appicon.png
 
-# Directorio base
+SRC=${1:-app/build/appicon.png}
 BUILD_DIR="app/build"
-APPICON_PNG="$BUILD_DIR/appicon.png"
+WIN_DIR="$BUILD_DIR/windows"
+MAC_DIR="$BUILD_DIR/darwin"
+LINUX_DIR="$BUILD_DIR/linux"
 
-# Verificar que existe el archivo appicon.png
-if [ ! -f "$APPICON_PNG" ]; then
-    echo "❌ Error: No se encuentra $APPICON_PNG"
+echo "🔧 Configurando iconos para todas las plataformas usando: $SRC"
+
+if [ ! -f "$SRC" ]; then
+    echo "❌ Error: archivo fuente no encontrado: $SRC"
     exit 1
 fi
 
-echo "✅ Archivo fuente encontrado: $APPICON_PNG"
+mkdir -p "$WIN_DIR" "$MAC_DIR" "$LINUX_DIR"
 
-# Para Windows - convertir PNG a ICO
-echo "🖼️  Configurando icono para Windows..."
-if command -v magick &> /dev/null; then
-    # Si ImageMagick está disponible
-    magick "$APPICON_PNG" -resize 256x256 "$BUILD_DIR/windows/icon.ico"
-    echo "✅ Icono Windows generado con ImageMagick"
-elif command -v convert &> /dev/null; then
-    # Si convert está disponible (versión antigua de ImageMagick)
-    convert "$APPICON_PNG" -resize 256x256 "$BUILD_DIR/windows/icon.ico"
-    echo "✅ Icono Windows generado con convert"
+echo "✅ Archivo fuente encontrado: $SRC"
+
+# Helper: check for ImageMagick
+has_magick() {
+    command -v magick >/dev/null 2>&1
+}
+
+echo "🖼️  Generando icono Windows (ICO) con múltiples tamaños..."
+if has_magick; then
+    # Generate ICO containing multiple sizes without relying on shell parentheses
+    TMPICONDIR=$(mktemp -d)
+    magick "$SRC" -resize 16x16  "$TMPICONDIR/icon_16.png"
+    magick "$SRC" -resize 32x32  "$TMPICONDIR/icon_32.png"
+    magick "$SRC" -resize 48x48  "$TMPICONDIR/icon_48.png"
+    magick "$SRC" -resize 64x64  "$TMPICONDIR/icon_64.png"
+    magick "$SRC" -resize 128x128 "$TMPICONDIR/icon_128.png"
+    magick "$SRC" -resize 256x256 "$TMPICONDIR/icon_256.png"
+    magick "$TMPICONDIR/icon_16.png" "$TMPICONDIR/icon_32.png" \
+        "$TMPICONDIR/icon_48.png" "$TMPICONDIR/icon_64.png" \
+        "$TMPICONDIR/icon_128.png" "$TMPICONDIR/icon_256.png" \
+        "$WIN_DIR/icon.ico"
+    rm -rf "$TMPICONDIR"
+    echo "✅ $WIN_DIR/icon.ico created with ImageMagick"
 else
-    # Usar PowerShell en Windows o fallback en otros sistemas
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
-        powershell -Command "
-            Add-Type -AssemblyName System.Drawing
-            \$png = [System.Drawing.Image]::FromFile((Get-Item '$APPICON_PNG').FullName)
-            \$bitmap = New-Object System.Drawing.Bitmap(\$png)
-            \$iconHandle = \$bitmap.GetHicon()
-            \$icon = [System.Drawing.Icon]::FromHandle(\$iconHandle)
-            \$iconStream = New-Object System.IO.FileStream('$BUILD_DIR/windows/icon.ico', [System.IO.FileMode]::Create)
-            \$icon.Save(\$iconStream)
-            \$iconStream.Close()
-            \$icon.Dispose()
-            \$bitmap.Dispose()
-            \$png.Dispose()
-        "
-        echo "✅ Icono Windows generado con PowerShell"
+    # Fallback: try go tool if available, otherwise use single-size PNG copy
+    if command -v go >/dev/null 2>&1 && [ -f "app/tools/convert-icon.go" ]; then
+        echo "ℹ️  ImageMagick not found — using Go converter (app/tools/convert-icon.go)"
+        # convert-icon.go expects input at ../build/appicon.png by default; copy temp then run
+        TMPDIR=$(mktemp -d)
+        cp "$SRC" "$TMPDIR/appicon.png"
+        (cd app/tools && GO111MODULE=on go run convert-icon.go "$TMPDIR/appicon.png" "$WIN_DIR/icon.ico") || true
+        rm -rf "$TMPDIR"
+        if [ -f "$WIN_DIR/icon.ico" ]; then
+            echo "✅ $WIN_DIR/icon.ico created with Go converter"
+        else
+            echo "⚠️  No se pudo generar ICO automáticamente, usando PNG como fallback"
+            cp "$SRC" "$WIN_DIR/icon.ico"
+        fi
     else
-        echo "⚠️  No se pudo generar icono ICO, usando PNG como fallback"
-        cp "$APPICON_PNG" "$BUILD_DIR/windows/icon.ico"
+        echo "⚠️  ImageMagick ni Go converter disponibles — copiando PNG a ICO como fallback"
+        cp "$SRC" "$WIN_DIR/icon.ico"
     fi
 fi
 
-# Para macOS - copiar PNG
-echo "🍎 Configurando icono para macOS..."
-cp "$APPICON_PNG" "$BUILD_DIR/darwin/icon.png"
-echo "✅ Icono macOS configurado"
-
-# Para Linux - copiar PNG (algunos sistemas usan iconos PNG)
-echo "🐧 Configurando icono para Linux..."
-if [ ! -d "$BUILD_DIR/linux" ]; then
-    mkdir -p "$BUILD_DIR/linux"
+echo "🍎 Generando icono macOS (ICNS si iconutil disponible, fallback PNG)..."
+# Create Icon.iconset structure if iconutil available
+if command -v iconutil >/dev/null 2>&1 && has_magick; then
+    ICONSET_DIR=$(mktemp -d)/Icon.iconset
+    mkdir -p "$ICONSET_DIR"
+    # sizes required by iconutil
+    magick "$SRC" -resize 16x16  "$ICONSET_DIR/icon_16x16.png"
+    magick "$SRC" -resize 32x32  "$ICONSET_DIR/icon_16x16@2x.png"
+    magick "$SRC" -resize 32x32  "$ICONSET_DIR/icon_32x32.png"
+    magick "$SRC" -resize 64x64  "$ICONSET_DIR/icon_32x32@2x.png"
+    magick "$SRC" -resize 128x128 "$ICONSET_DIR/icon_128x128.png"
+    magick "$SRC" -resize 256x256 "$ICONSET_DIR/icon_128x128@2x.png"
+    magick "$SRC" -resize 256x256 "$ICONSET_DIR/icon_256x256.png"
+    magick "$SRC" -resize 512x512 "$ICONSET_DIR/icon_256x256@2x.png"
+    magick "$SRC" -resize 512x512 "$ICONSET_DIR/icon_512x512.png"
+    magick "$SRC" -resize 1024x1024 "$ICONSET_DIR/icon_512x512@2x.png"
+    # build icns
+    iconutil -c icns "$ICONSET_DIR" -o "$MAC_DIR/icon.icns"
+    rm -rf "$(dirname "$ICONSET_DIR")"
+    echo "✅ $MAC_DIR/icon.icns created"
+else
+    # fallback: copy PNG
+    cp "$SRC" "$MAC_DIR/icon.png"
+    echo "⚠️  iconutil or ImageMagick not available — copied PNG to $MAC_DIR/icon.png"
 fi
-cp "$APPICON_PNG" "$BUILD_DIR/linux/icon.png"
-echo "✅ Icono Linux configurado"
+
+echo "🐧 Generando iconos Linux (varias resoluciones)..."
+SIZES=(16 24 32 48 64 128 256 512)
+for s in "${SIZES[@]}"; do
+    magick "$SRC" -resize ${s}x${s} "$LINUX_DIR/icon-${s}x${s}.png" 2>/dev/null || cp "$SRC" "$LINUX_DIR/icon-${s}x${s}.png"
+done
+# Also provide a canonical 256x256 icon.png for packaging spec
+if [ -f "$LINUX_DIR/icon-256x256.png" ]; then
+    cp "$LINUX_DIR/icon-256x256.png" "$LINUX_DIR/icon.png"
+fi
 
 echo "🎉 ¡Configuración de iconos completada!"
 echo ""
-echo "📁 Archivos generados:"
-echo "   - Windows: $BUILD_DIR/windows/icon.ico"
-echo "   - macOS:   $BUILD_DIR/darwin/icon.png"
-echo "   - Linux:   $BUILD_DIR/linux/icon.png"
+echo "📁 Archivos generados:" 
+echo "   - Windows: $WIN_DIR/icon.ico"
+if [ -f "$MAC_DIR/icon.icns" ]; then
+    echo "   - macOS:   $MAC_DIR/icon.icns"
+else
+    echo "   - macOS:   $MAC_DIR/icon.png"
+fi
+echo "   - Linux:   $LINUX_DIR/icon.png + icon-<size>x<size>.png"
 echo ""
-echo "💡 Ahora puedes compilar tu aplicación con 'wails build' y tendrá los iconos configurados."
+echo "💡 Reemplaza en 'app/build' tu icono base y ejecuta 'wails build' para que los instaladores lo incluyan."

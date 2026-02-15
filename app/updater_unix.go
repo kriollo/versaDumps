@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // InstallUpdate instala la actualización en sistemas Unix
@@ -19,6 +21,28 @@ func (um *UpdateManager) InstallUpdate(filePath string) error {
 		return fmt.Errorf("abrir paquete de actualización: %w", err)
 	}
 	defer f.Close()
+
+	// Si es un RPM, intentar instalar vía gestor de paquetes (requiere privilegios)
+	if strings.HasSuffix(strings.ToLower(filePath), ".rpm") {
+		// Preferir pkexec si está disponible, sino usar sudo. Si ambos faltan, devolver instrucción.
+		if _, err := exec.LookPath("pkexec"); err == nil {
+			cmd := exec.Command("pkexec", "dnf", "install", "-y", filePath)
+			output, runErr := cmd.CombinedOutput()
+			if runErr != nil {
+				return fmt.Errorf("instalación RPM falló: %v; salida: %s", runErr, string(output))
+			}
+			return nil
+		}
+		if _, err := exec.LookPath("sudo"); err == nil {
+			cmd := exec.Command("sudo", "dnf", "install", "-y", filePath)
+			output, runErr := cmd.CombinedOutput()
+			if runErr != nil {
+				return fmt.Errorf("instalación RPM con sudo falló: %v; salida: %s", runErr, string(output))
+			}
+			return nil
+		}
+		return fmt.Errorf("archivo .rpm detectado. Instala manualmente con 'sudo dnf install -y %s' o instala pkexec para permitir instalación desde la aplicación", filePath)
+	}
 
 	// Detectar gzip by extension
 	ext := filepath.Ext(filePath)

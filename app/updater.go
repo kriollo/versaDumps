@@ -159,7 +159,25 @@ func (um *UpdateManager) getDownloadURL(assets []Asset) (string, int) {
 	case "darwin":
 		patterns = []string{"macos-amd64", "darwin-amd64", "darwin", "macos"}
 	case "linux":
-		patterns = []string{"linux-amd64", "linux"}
+		// On Linux try to prefer distro packages when possible (rpm/deb), then archives, then generic linux artifacts
+		pkgType := detectPackageType()
+		if pkgType == "rpm" {
+			// Prefer RPM packages
+			for _, asset := range assets {
+				if strings.HasSuffix(strings.ToLower(asset.Name), ".rpm") {
+					return asset.BrowserDownloadURL, asset.Size
+				}
+			}
+		} else if pkgType == "deb" {
+			for _, asset := range assets {
+				if strings.HasSuffix(strings.ToLower(asset.Name), ".deb") {
+					return asset.BrowserDownloadURL, asset.Size
+				}
+			}
+		}
+
+		// Fallback to archives or linux-specific assets
+		patterns = []string{"linux-amd64", "linux", ".tar.gz", ".tgz"}
 	default:
 		patterns = []string{osArch}
 	}
@@ -178,6 +196,23 @@ func (um *UpdateManager) getDownloadURL(assets []Asset) (string, int) {
 	}
 
 	return "", 0
+}
+
+// detectPackageType intenta detectar si el sistema es RPM o DEB basado en /etc/os-release
+func detectPackageType() string {
+	// Default: no specific package type
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	s := strings.ToLower(string(data))
+	if strings.Contains(s, "fedora") || strings.Contains(s, "centos") || strings.Contains(s, "rhel") || strings.Contains(s, "redhat") || strings.Contains(s, "rocky") || strings.Contains(s, "almalinux") {
+		return "rpm"
+	}
+	if strings.Contains(s, "debian") || strings.Contains(s, "ubuntu") || strings.Contains(s, "linuxmint") || strings.Contains(s, "pop") {
+		return "deb"
+	}
+	return ""
 }
 
 // DownloadUpdate descarga la actualización

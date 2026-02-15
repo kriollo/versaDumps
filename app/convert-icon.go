@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/png"
 	"os"
 
@@ -8,31 +9,39 @@ import (
 )
 
 func iconMain() {
-	// Abrir la imagen PNG
-	file, err := os.Open("build/appicon.png")
+	in := "build/appicon.png"
+	out := "build/windows/icon.ico"
+	if len(os.Args) >= 2 {
+		in = os.Args[1]
+	}
+	if len(os.Args) >= 3 {
+		out = os.Args[2]
+	}
+
+	file, err := os.Open(in)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error opening %s: %v\n", in, err)
+		return
 	}
 	defer file.Close()
 
-	// Decodificar la imagen PNG
 	img, err := png.Decode(file)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error decoding png: %v\n", err)
+		return
 	}
 
-	// Crear el archivo ICO
-	output, err := os.Create("build/windows/icon.ico")
+	output, err := os.Create(out)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error creating %s: %v\n", out, err)
+		return
 	}
 	defer output.Close()
 
-	// Codificar como ICO con múltiples tamaños
-	err = ico.Encode(output, img)
-	if err != nil {
-		panic(err)
+	if err := ico.Encode(output, img); err != nil {
+		fmt.Fprintf(os.Stderr, "error encoding ico: %v\n", err)
+		return
 	}
 
-	println("✓ Icono ICO generado exitosamente")
+	fmt.Println("✓ Icono ICO generado exitosamente ->", out)
 }

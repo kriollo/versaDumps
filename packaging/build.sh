@@ -11,7 +11,27 @@ mkdir -p "$DIST_DIR"
 
 echo "Building linux binary via go (simple build)..."
 cd "$APP_DIR"
-GOOS=linux GOARCH=amd64 go build -o "$DIST_DIR/versaDumps-$VER"
+# Output binary to a .bin file to avoid name collision with staging directory
+GOOS=linux GOARCH=amd64 go build -o "$DIST_DIR/versaDumps-$VER.bin"
+
+echo "Staging files for distribution (includes icons/resources)..."
+STAGING="$DIST_DIR/versaDumps-$VER"
+rm -rf "$STAGING"
+mkdir -p "$STAGING"
+
+# Copy the binary (named 'versaDumps' inside the archive)
+cp "$DIST_DIR/versaDumps-$VER.bin" "$STAGING/versaDumps"
+
+# Include app resources so installers and packaging can pick icons, plist, etc.
+mkdir -p "$STAGING/app"
+if [ -d "$APP_DIR/build" ]; then
+  cp -r "$APP_DIR/build" "$STAGING/app/build"
+fi
+
+# Include config example
+if [ -f "$APP_DIR/config.yml" ]; then
+  cp "$APP_DIR/config.yml" "$STAGING/app/config.yml"
+fi
 
 echo "Creating tar.gz..."
 tar -C "$DIST_DIR" -czf "$DIST_DIR/versaDumps-$VER-linux-amd64.tar.gz" "versaDumps-$VER"

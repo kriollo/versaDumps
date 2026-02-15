@@ -12,7 +12,7 @@ import (
 // SetTaskbarBadge sets the dock badge on macOS using AppleScript
 func SetTaskbarBadge(ctx context.Context, count int) {
 	log.Printf("[Badge] Setting macOS dock badge to: %d", count)
-	
+
 	var script string
 	if count <= 0 {
 		// Clear the badge
@@ -25,7 +25,7 @@ func SetTaskbarBadge(ctx context.Context, count int) {
 		}
 		script = fmt.Sprintf(`tell application "System Events" to tell process "app" to set badge of dock tile to "%s"`, badgeText)
 	}
-	
+
 	// Execute AppleScript
 	cmd := exec.Command("osascript", "-e", script)
 	if err := cmd.Run(); err != nil {
