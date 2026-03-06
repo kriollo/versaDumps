@@ -10,6 +10,7 @@ import (
 	gosys "runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -128,6 +129,10 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 		return fmt.Errorf("active profile not found in profiles list")
 	}
 
+	// Capture old host/port to detect whether a server restart is needed
+	oldServer := cfg.Profiles[profileIndex].Server
+	oldPort := cfg.Profiles[profileIndex].Port
+
 	// Handle server field
 	if v, ok := partial["server"]; ok {
 		if serverStr, ok := v.(string); ok && serverStr != "" {
@@ -180,10 +185,15 @@ func (a *App) SaveFrontendConfig(partial map[string]interface{}) error {
 		return err
 	}
 
-	// Restart the HTTP server to apply new settings (synchronously to avoid race conditions)
-	runtime.LogInfof(a.ctx, "Configuration saved, restarting HTTP server...")
-	if err := a.RestartHTTPServer(); err != nil {
-		runtime.LogErrorf(a.ctx, "Error restarting HTTP server: %v", err)
+	// Only restart HTTP server if the server address or port changed
+	newServer := cfg.Profiles[profileIndex].Server
+	newPort := cfg.Profiles[profileIndex].Port
+	if newServer != oldServer || newPort != oldPort {
+		runtime.LogInfof(a.ctx, "Server config changed (%s:%d -> %s:%d), restarting HTTP server...",
+			oldServer, oldPort, newServer, newPort)
+		if err := a.RestartHTTPServer(); err != nil {
+			runtime.LogErrorf(a.ctx, "Error restarting HTTP server: %v", err)
+		}
 	}
 
 	return nil
@@ -349,9 +359,15 @@ func (a *App) stopHTTPServerInternal() {
 	if a.serverCancel != nil {
 		runtime.LogInfof(a.ctx, "Stopping HTTP server...")
 		a.serverCancel()
-		// Wait a moment for graceful shutdown
 		a.serverCancel = nil
-		a.httpServer = nil
+
+		// Graceful shutdown — wait up to 3 seconds for in-flight requests to complete
+		if a.httpServer != nil {
+			shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = a.httpServer.Shutdown(shutCtx)
+			a.httpServer = nil
+		}
 	}
 }
 
@@ -369,6 +385,20 @@ func (a *App) RestartHTTPServer() error {
 	}
 
 	return nil
+}
+
+// GetLogWatcherStatus exposes the current log watcher status to the frontend
+func (a *App) GetLogWatcherStatus() (map[string]interface{}, error) {
+	if a.logWatcher == nil {
+		return map[string]interface{}{
+			"running":     false,
+			"folderCount": 0,
+			"fileCount":   0,
+		}, nil
+	}
+	// Use the watcher internal status if available
+	status := a.logWatcher.GetStatus()
+	return status, nil
 }
 
 // ========================================
@@ -485,10 +515,6 @@ func (a *App) SwitchProfile(name string) error {
 		return err
 	}
 
-	// Emit the new active profile to frontend so it can update immediately
-	cfgBytes, _ := json.Marshal(newProfile)
-	runtime.EventsEmit(a.ctx, "profileSwitched", string(cfgBytes))
-
 	// Restart HTTP server with new profile settings
 	if err := a.RestartHTTPServer(); err != nil {
 		return err
@@ -503,6 +529,10 @@ func (a *App) SwitchProfile(name string) error {
 		// Stop log watcher if new profile has no log folders
 		a.StopLogWatcher()
 	}
+
+	// Emit after all services have restarted so frontend reflects stable state
+	cfgBytes, _ := json.Marshal(newProfile)
+	runtime.EventsEmit(a.ctx, "profileSwitched", string(cfgBytes))
 
 	return nil
 }

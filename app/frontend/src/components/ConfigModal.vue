@@ -160,10 +160,11 @@
           >
             <button
               @click="onProfileChange"
-              class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center justify-center gap-2"
+              :disabled="isLoading"
+              class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Icon name="check" class="w-4 h-4" />
-              {{ t("activate_profile") }}: {{ selectedProfile }}
+              {{ isLoading ? t("loading") + "..." : t("activate_profile") + ": " + selectedProfile }}
             </button>
           </div>
 
@@ -183,14 +184,15 @@
           <div class="flex gap-2 mt-4">
             <button
               @click="showCreateProfileModal = true"
-              class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2"
+              :disabled="isLoading"
+              class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Icon name="add" class="w-4 h-4" />
               {{ t("create_profile") }}
             </button>
             <button
               @click="confirmDeleteProfile"
-              :disabled="profiles.length <= 1"
+              :disabled="profiles.length <= 1 || isLoading"
               class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Icon name="delete" class="w-4 h-4" />
@@ -381,6 +383,7 @@ const selectedShowTypes = ref(false);
 const profiles = ref([]);
 const selectedProfile = ref("");
 const activeProfileName = ref(""); // Track the actual active profile from backend
+const isLoading = ref(false);
 const currentProfile = computed(() => {
   return profiles.value.find(
     (p) => (p.name || p.Name) === selectedProfile.value,
@@ -459,8 +462,10 @@ const loadProfiles = async () => {
 
 // Create new profile
 const createProfile = async () => {
-  if (!newProfileName.value.trim()) return;
+  const profileName = newProfileName.value.trim();
+  if (!profileName || isLoading.value) return;
 
+  isLoading.value = true;
   try {
     let server = "localhost";
     let port = 9191;
@@ -482,7 +487,7 @@ const createProfile = async () => {
     }
 
     await BackendApp.CreateProfile(
-      newProfileName.value.trim(),
+      profileName,
       server,
       port,
       "",
@@ -494,14 +499,21 @@ const createProfile = async () => {
     showCreateProfileModal.value = false;
     newProfileName.value = "";
     copyCurrentSettings.value = true;
+
+    // Auto-select the newly created profile
+    selectedProfile.value = profileName;
   } catch (e) {
     console.error("Error creating profile:", e);
     alert(t.value("error") + ": " + e);
+  } finally {
+    isLoading.value = false;
   }
 };
 
 // Delete current profile
 const confirmDeleteProfile = async () => {
+  if (isLoading.value) return;
+
   if (profiles.value.length <= 1) {
     alert(t.value("cannot_delete_last_profile"));
     return;
@@ -517,6 +529,7 @@ const confirmDeleteProfile = async () => {
     return;
   }
 
+  isLoading.value = true;
   try {
     await BackendApp.DeleteProfile(selectedProfile.value);
     await loadProfiles();
@@ -529,13 +542,17 @@ const confirmDeleteProfile = async () => {
   } catch (e) {
     console.error("Error deleting profile:", e);
     alert(t.value("error") + ": " + e);
+  } finally {
+    isLoading.value = false;
   }
 };
 
 // Switch to different profile
 const onProfileChange = async () => {
+  if (isLoading.value) return;
+
+  isLoading.value = true;
   try {
-    console.log("Activating profile:", selectedProfile.value);
     await BackendApp.SwitchProfile(selectedProfile.value);
 
     // Update the active profile name locally
@@ -545,14 +562,12 @@ const onProfileChange = async () => {
     await loadProfiles();
 
     // The backend will emit 'profileSwitched' event which App.vue will handle
-    console.log("Profile activated successfully:", selectedProfile.value);
-
-    // Show success message without blocking (remove alert)
-    // The profileSwitched event in App.vue will show a toast message
   } catch (err) {
     console.error("Error switching profile:", err);
     const errorMsg = `${t.value("error")}: ${err}`;
     alert(errorMsg);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -568,6 +583,13 @@ const closeModal = () => {
 };
 
 const saveSettings = async () => {
+  // Validate port range before saving
+  const portVal = parseInt(selectedPort.value, 10);
+  if (isNaN(portVal) || portVal < 1 || portVal > 65535) {
+    alert(t.value("invalid_port") || "Port must be between 1 and 65535");
+    return;
+  }
+
   // Guardar el idioma seleccionado
   setLanguage(selectedLanguage.value);
 

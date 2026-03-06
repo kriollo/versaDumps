@@ -20,6 +20,8 @@ export function GetCurrentVersion():Promise<string>;
 
 export function GetLogFolders():Promise<Array<main.LogFolder>>;
 
+export function GetLogWatcherStatus():Promise<Record<string, any>>;
+
 export function GetVisibleCount():Promise<number>;
 
 export function GetWindowPosition():Promise<main.WindowPosition>;

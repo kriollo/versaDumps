@@ -38,6 +38,10 @@ export function GetLogFolders() {
   return window['go']['main']['App']['GetLogFolders']();
 }
 
+export function GetLogWatcherStatus() {
+  return window['go']['main']['App']['GetLogWatcherStatus']();
+}
+
 export function GetVisibleCount() {
   return window['go']['main']['App']['GetVisibleCount']();
 }

@@ -93,7 +93,9 @@
             <div v-if="showLogFiles" class="resizer-horizontal" @mousedown="startResize"></div>
 
             <!-- Bottom Panel: Log Files -->
-            <div v-if="showLogFiles" class="panel logfiles-panel" :style="{ height: `${100 - dumpsHeight}%` }">
+            <!-- v-show (not v-if) keeps LogFileViewer mounted so its EventsOn("logLine") listener
+                 is always registered, even before the user opens the panel -->
+            <div v-show="showLogFiles" class="panel logfiles-panel" :style="{ height: `${100 - dumpsHeight}%` }">
                 <LogFileViewer />
             </div>
         </div>
@@ -128,9 +130,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import * as BackendApp from "../wailsjs/go/main/App";
-import { EventsOn, WindowIsMinimised } from "../wailsjs/runtime/runtime";
+import { EventsOff, EventsOn, WindowIsMinimised } from "../wailsjs/runtime/runtime";
 import ConfigModal from "./components/ConfigModal.vue";
 import Icon from "./components/Icon.vue";
 import LineHr from "./components/LineHr.vue";
@@ -154,11 +156,9 @@ const isResizing = ref(false);
 const isNewerVersion = (newVer, currentVer) => {
     if (!newVer || !currentVer) return false;
 
-    // Remove 'v' prefix if present
-    const cleanNew = newVer.replace(/^v/, "");
-    const cleanCurrent = currentVer.replace(/^v/, "");
-
-    console.log(`Version comparison: new="${cleanNew}" vs current="${cleanCurrent}"`);
+    // Remove 'v' prefix and strip pre-release suffix (e.g. -beta, -rc1)
+    const cleanNew = newVer.replace(/^v/, "").split("-")[0];
+    const cleanCurrent = currentVer.replace(/^v/, "").split("-")[0];
 
     const newParts = cleanNew.split(".").map((n) => parseInt(n, 10));
     const currentParts = cleanCurrent.split(".").map((n) => parseInt(n, 10));
@@ -168,17 +168,10 @@ const isNewerVersion = (newVer, currentVer) => {
     while (currentParts.length < 3) currentParts.push(0);
 
     for (let i = 0; i < 3; i++) {
-        if (newParts[i] > currentParts[i]) {
-            console.log(`Version check: ${cleanNew} is newer than ${cleanCurrent}`);
-            return true;
-        }
-        if (newParts[i] < currentParts[i]) {
-            console.log(`Version check: ${cleanNew} is older than ${cleanCurrent}`);
-            return false;
-        }
+        if (newParts[i] > currentParts[i]) return true;
+        if (newParts[i] < currentParts[i]) return false;
     }
 
-    console.log(`Version check: ${cleanNew} is same as ${cleanCurrent}`);
     return false;
 };
 
@@ -202,6 +195,8 @@ const serverStatusText = computed(() => {
 const serverStatusTitle = computed(() => `Server: ${serverHost.value}:${serverPort.value}`);
 
 let healthInterval = null;
+let updateCheckInterval = null;
+const isCheckingUpdate = ref(false);
 
 const checkServerHealth = async () => {
     if (serverHost.value === "" || serverPort.value === 0) {
@@ -228,7 +223,6 @@ const startHealthPolling = () => {
         clearInterval(healthInterval);
         healthInterval = null;
     }
-    console.log(`Starting health polling for ${serverHost.value}:${serverPort.value}`);
     // Clear any existing interval
     if (healthInterval) {
         clearInterval(healthInterval);
@@ -278,47 +272,37 @@ onMounted(async () => {
 
     // Check for updates periodically
     const checkForUpdates = async () => {
-        console.log("=== CHECKING FOR UPDATES ===");
-        console.log("Current version:", currentVersion.value);
+        if (isCheckingUpdate.value) return;
+        isCheckingUpdate.value = true;
 
         try {
             const updateInfo = await BackendApp.CheckForUpdates();
-            console.log("Update info received:", updateInfo);
 
             if (updateInfo && updateInfo.available) {
-                // Double-check with our own version comparison
                 const isActuallyNewer = isNewerVersion(updateInfo.version, currentVersion.value);
-                console.log("Backend says update available, our check says:", isActuallyNewer);
-
                 if (isActuallyNewer) {
                     hasUpdate.value = true;
                     newVersion.value = updateInfo.version;
-                    console.log("✅ Update confirmed: Setting hasUpdate=true, newVersion=", updateInfo.version);
                 } else {
-                    // Backend says there's an update, but version comparison disagrees
-                    console.log("⚠️ Backend reported update available, but version check disagrees. Ignoring.");
                     hasUpdate.value = false;
                     newVersion.value = "";
                 }
             } else {
-                // Clear update state when no update is available
-                console.log("❌ No update available according to backend");
                 hasUpdate.value = false;
                 newVersion.value = "";
             }
         } catch (e) {
             console.error("Error checking updates:", e);
-            // Clear update state on error
             hasUpdate.value = false;
             newVersion.value = "";
+        } finally {
+            isCheckingUpdate.value = false;
         }
-
-        console.log("Final state: hasUpdate=", hasUpdate.value, "newVersion=", newVersion.value);
     };
 
     // Check after 10 seconds and then every 30 minutes
     setTimeout(checkForUpdates, 10000);
-    setInterval(checkForUpdates, 30 * 60 * 1000);
+    updateCheckInterval = setInterval(checkForUpdates, 30 * 60 * 1000);
 
     // Try to get config from backend if available. Start polling only after config is confirmed.
     try {
@@ -500,8 +484,7 @@ onMounted(() => {
                 }
             }
 
-            console.log("📦 Payload recibido:", parsedData);
-            console.log("🔄 Datos normalizados:", normalizedData); // Procesar context.variables si existe (versión 2.2.0+)
+            // Procesar context.variables si existe (versión 2.2.0+)
             if (parsedData.context && parsedData.context.variables) {
                 // La nueva estructura tiene variables dentro de context
                 normalizedData.context = parsedData.context.variables;
@@ -564,26 +547,11 @@ onMounted(() => {
       */
 
             logs.value.push({ ...normalizedData, id: Date.now() });
-            console.log("=== NEW LOG ADDED ===");
-            console.log("Frontend count after add:", logs.value.length);
+            // Cap at 1000 to prevent unbounded growth and performance degradation
+            if (logs.value.length > 1000) logs.value.shift();
 
             try {
                 BackendApp.UpdateVisibleCount(logs.value.length);
-                console.log("Sent to backend counter:", logs.value.length);
-
-                // Verify it was set correctly
-                BackendApp.GetVisibleCount()
-                    .then((cnt) => {
-                        console.log("Verified backend counter after add:", cnt);
-                        if (cnt !== logs.value.length) {
-                            console.error("❌ MISMATCH! Frontend:", logs.value.length, "Backend:", cnt);
-                        } else {
-                            console.log("✅ Counters in sync!");
-                        }
-                    })
-                    .catch((e) => {
-                        console.error("Error verifying backend counter:", e);
-                    });
             } catch (e) {
                 console.error("Error updating backend counter:", e);
             }
@@ -693,35 +661,17 @@ onMounted(() => {
 
 const deleteLog = (id) => {
     logs.value = logs.value.filter((log) => log.id !== id);
-    console.log("Deleted log, new count:", logs.value.length);
     try {
         BackendApp.UpdateVisibleCount(logs.value.length);
-        console.log("Updated backend counter to:", logs.value.length);
     } catch (e) {
         console.error("Error updating backend counter:", e);
     }
 };
 
 const clearLogs = () => {
-    console.log("=== CLEARING LOGS ===");
-    console.log("Before clear - logs.length:", logs.value.length);
-
     logs.value = [];
-    console.log("After clear - logs.length:", logs.value.length);
-
-    // Ensure backend counter is properly reset
     try {
         BackendApp.UpdateVisibleCount(0);
-        console.log("Backend counter reset to 0");
-
-        // Double-check by getting the count back
-        BackendApp.GetVisibleCount()
-            .then((cnt) => {
-                console.log("Verified backend counter after reset:", cnt);
-            })
-            .catch((e) => {
-                console.error("Error verifying backend counter:", e);
-            });
     } catch (e) {
         console.error("Error resetting backend counter:", e);
     }
@@ -834,6 +784,14 @@ const stopResize = () => {
     document.removeEventListener("mousemove", handleResize);
     document.removeEventListener("mouseup", stopResize);
 };
+
+onUnmounted(() => {
+    EventsOff("newData");
+    EventsOff("configLoaded");
+    EventsOff("profileSwitched");
+    clearInterval(healthInterval);
+    clearInterval(updateCheckInterval);
+});
 </script>
 
 <style>

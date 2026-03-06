@@ -113,7 +113,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { EventsOn } from "../../wailsjs/runtime/runtime";
+import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
 import { t } from "../i18n";
 import Icon from "./Icon.vue";
 
@@ -221,11 +221,21 @@ const scrollToBottom = () => {
     });
 };
 
+const escapeHtml = (str) => {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+};
+
 const colorizeJson = (jsonString) => {
-    return jsonString
-        .replace(/(".*?")\s*:/g, '<span class="json-key">$1</span>:')
-        .replace(/:\s*(".*?")/g, ': <span class="json-string">$1</span>')
-        .replace(/:\s*(\d+)/g, ': <span class="json-number">$1</span>')
+    // Escape HTML first to prevent XSS from log content rendered via v-html
+    const escaped = escapeHtml(jsonString);
+    return escaped
+        .replace(/(&quot;.*?&quot;)\s*:/g, '<span class="json-key">$1</span>:')
+        .replace(/:\s*(&quot;.*?&quot;)/g, ': <span class="json-string">$1</span>')
+        .replace(/:\s*(\d+(?:\.\d+)?)/g, ': <span class="json-number">$1</span>')
         .replace(/:\s*(true|false)/g, ': <span class="json-boolean">$1</span>')
         .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>');
 };
@@ -276,8 +286,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    // Clean up event listener if needed
-    // Note: Wails runtime doesn't have EventsOff, but it auto-cleans on component unmount
+    EventsOff("logLine");
 });
 </script>
 

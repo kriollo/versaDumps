@@ -16,19 +16,19 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// LogWatcher monitors log files and directories for changes
+// LogWatcher monitors log files and directories for changes.
 type LogWatcher struct {
-	ctx      context.Context
-	watcher  *fsnotify.Watcher
-	files    map[string]*LogFile // path -> LogFile
-	folders  []LogFolder
-	running  bool
-	mu       sync.RWMutex
-	stopChan chan struct{}
-	wg       sync.WaitGroup // Track active goroutines
+	appCtx  context.Context // Wails context for logging and event emission
+	cancel  context.CancelFunc
+	watcher *fsnotify.Watcher
+	files   map[string]*LogFile // path -> LogFile
+	folders []LogFolder
+	running bool
+	mu      sync.RWMutex
+	wg      sync.WaitGroup
 }
 
-// LogFile represents a monitored log file (NO FILE HANDLE - only metadata)
+// LogFile represents a monitored log file (no persistent file handle).
 type LogFile struct {
 	Path         string
 	LastPosition int64
@@ -37,116 +37,150 @@ type LogFile struct {
 	mu           sync.Mutex
 }
 
-// LogEntry represents a single log line with metadata
+// LogEntry represents a single log line with metadata.
 type LogEntry struct {
 	FilePath  string    `json:"filePath"`
 	FileName  string    `json:"fileName"`
 	Line      string    `json:"line"`
-	Level     string    `json:"level"` // error, warning, info, debug, etc.
+	Level     string    `json:"level"`
 	Timestamp time.Time `json:"timestamp"`
 	LineNum   int       `json:"lineNum"`
 }
 
-// NewLogWatcher creates a new LogWatcher instance
+// NewLogWatcher creates a new LogWatcher instance.
 func NewLogWatcher(ctx context.Context) (*LogWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create fsnotify watcher: %v", err)
 	}
-
 	return &LogWatcher{
-		ctx:      ctx,
-		watcher:  watcher,
-		files:    make(map[string]*LogFile),
-		folders:  []LogFolder{},
-		stopChan: make(chan struct{}),
+		appCtx:  ctx,
+		watcher: watcher,
+		files:   make(map[string]*LogFile),
+		folders: []LogFolder{},
 	}, nil
 }
 
-// Start begins monitoring the configured folders
+// Start begins monitoring the configured folders.
 func (lw *LogWatcher) Start(folders []LogFolder) error {
 	lw.mu.Lock()
-	defer lw.mu.Unlock()
 
 	if lw.running {
+		lw.mu.Unlock()
 		return fmt.Errorf("log watcher is already running")
 	}
 
 	if len(folders) == 0 {
-		runtime.LogInfof(lw.ctx, "No log folders configured, log watcher will not start")
+		lw.mu.Unlock()
+		runtime.LogInfof(lw.appCtx, "No log folders configured, log watcher will not start")
 		return nil
 	}
 
 	lw.folders = folders
-	lw.running = true
 
-	runtime.LogInfof(lw.ctx, "Starting log watcher with %d folders", len(folders))
-
-	// Add all folders and their files to the watcher
 	enabledCount := 0
 	for _, folder := range folders {
 		if !folder.Enabled {
-			runtime.LogInfof(lw.ctx, "Skipping disabled folder: %s", folder.Path)
+			runtime.LogInfof(lw.appCtx, "Skipping disabled folder: %s", folder.Path)
 			continue
 		}
-
-		runtime.LogInfof(lw.ctx, "Adding folder: %s (extensions: %v, format: %s)",
-			folder.Path, folder.Extensions, folder.Format)
-
+		runtime.LogInfof(lw.appCtx, "Adding folder: %s (extensions: %v)", folder.Path, folder.Extensions)
 		if err := lw.addFolder(folder); err != nil {
-			runtime.LogErrorf(lw.ctx, "Error adding folder %s: %v", folder.Path, err)
+			runtime.LogErrorf(lw.appCtx, "Error adding folder %s: %v", folder.Path, err)
 			continue
 		}
 		enabledCount++
 	}
 
 	if enabledCount == 0 {
-		runtime.LogWarningf(lw.ctx, "No enabled log folders were successfully added")
-		lw.running = false
+		lw.mu.Unlock()
+		runtime.LogWarningf(lw.appCtx, "No enabled log folders were successfully added")
 		return fmt.Errorf("no enabled log folders available")
 	}
 
-	// Start the event loop in a goroutine
-	lw.wg.Add(1)
-	go lw.eventLoop()
+	// Snapshot files for initial read (captured while holding the lock).
+	initialFiles := make([]*LogFile, 0, len(lw.files))
+	for _, f := range lw.files {
+		initialFiles = append(initialFiles, f)
+	}
 
-	runtime.LogInfof(lw.ctx, "Log watcher started successfully, monitoring %d enabled folders with %d files",
+	ctx, cancel := context.WithCancel(lw.appCtx)
+	lw.cancel = cancel
+	lw.running = true
+
+	// Start event loop goroutine.
+	lw.wg.Add(1)
+	go lw.eventLoop(ctx)
+
+	// Release the lock before doing file I/O.
+	// readNewLines acquires lw.mu.RLock internally; holding lw.mu.Lock() here
+	// would deadlock because sync.RWMutex is not reentrant.
+	lw.mu.Unlock()
+
+	// Read existing file content in a separate goroutine so the caller is not
+	// blocked. The goroutine respects ctx cancellation so Stop() is fast.
+	lw.wg.Add(1)
+	go func() {
+		defer lw.wg.Done()
+		for _, f := range initialFiles {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				lw.readNewLines(f)
+			}
+		}
+	}()
+
+	runtime.LogInfof(lw.appCtx, "Log watcher started: %d enabled folders, %d files",
 		enabledCount, len(lw.files))
 	return nil
 }
 
-// Stop stops the log watcher
+// Stop stops the log watcher and releases all resources.
 func (lw *LogWatcher) Stop() {
 	lw.mu.Lock()
-	if !lw.running {
-		lw.mu.Unlock()
-		return
-	}
+	wasRunning := lw.running
 	lw.running = false
+	cancel := lw.cancel
+	lw.cancel = nil
 	lw.mu.Unlock()
 
-	// Signal stop and wait for goroutines to finish
-	close(lw.stopChan)
-	lw.wg.Wait()
-
-	// Clear resources
-	lw.mu.Lock()
-	defer lw.mu.Unlock()
-
-	// No files to close - we don't keep them open!
-	lw.files = make(map[string]*LogFile)
-
-	// Close the watcher
-	if lw.watcher != nil {
-		lw.watcher.Close()
+	// Cancel the context to signal all goroutines.
+	if cancel != nil {
+		cancel()
 	}
 
-	runtime.LogInfof(lw.ctx, "Log watcher stopped and resources cleaned up")
+	if wasRunning {
+		// Wait for event loop and initial-read goroutines to finish.
+		lw.wg.Wait()
+		runtime.LogInfof(lw.appCtx, "Log watcher stopped")
+	}
+
+	// Always release OS resources (inotify watches), even if Start was never called.
+	lw.mu.Lock()
+	lw.files = make(map[string]*LogFile)
+	if lw.watcher != nil {
+		lw.watcher.Close()
+		lw.watcher = nil
+	}
+	lw.mu.Unlock()
 }
 
-// addFolder adds a folder and its matching files to the watcher
+// GetStatus returns the current watcher status for the frontend.
+func (lw *LogWatcher) GetStatus() map[string]interface{} {
+	lw.mu.RLock()
+	defer lw.mu.RUnlock()
+	return map[string]interface{}{
+		"running":     lw.running,
+		"folderCount": len(lw.folders),
+		"fileCount":   len(lw.files),
+	}
+}
+
+// addFolder registers a directory and all its matching files with the watcher.
+// Must be called while lw.mu is held (write lock).
 func (lw *LogWatcher) addFolder(folder LogFolder) error {
-	// Check if folder exists
 	info, err := os.Stat(folder.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -154,133 +188,93 @@ func (lw *LogWatcher) addFolder(folder LogFolder) error {
 		}
 		return fmt.Errorf("error accessing folder %s: %v", folder.Path, err)
 	}
-
 	if !info.IsDir() {
 		return fmt.Errorf("%s is not a directory", folder.Path)
 	}
 
-	// Add the folder to the watcher
 	if err := lw.watcher.Add(folder.Path); err != nil {
 		return fmt.Errorf("failed to watch folder %s: %v", folder.Path, err)
 	}
+	runtime.LogInfof(lw.appCtx, "Watching folder: %s", folder.Path)
 
-	runtime.LogInfof(lw.ctx, "Successfully added folder to watcher: %s", folder.Path)
-
-	// Find all matching files in the folder
 	files, err := lw.findMatchingFiles(folder)
 	if err != nil {
-		return fmt.Errorf("error finding files in %s: %v", folder.Path, err)
+		return fmt.Errorf("error scanning files in %s: %v", folder.Path, err)
 	}
+	runtime.LogInfof(lw.appCtx, "Found %d matching files in %s", len(files), folder.Path)
 
-	runtime.LogInfof(lw.ctx, "Found %d matching files in folder %s", len(files), folder.Path)
-
-	// Register each file for monitoring (but don't open them)
-	registeredCount := 0
 	for _, filePath := range files {
 		if err := lw.registerFile(filePath); err != nil {
-			runtime.LogErrorf(lw.ctx, "Error registering file %s: %v", filePath, err)
-			continue
+			runtime.LogErrorf(lw.appCtx, "Error registering file %s: %v", filePath, err)
 		}
-		registeredCount++
 	}
-
-	runtime.LogInfof(lw.ctx, "Successfully registered %d/%d files from folder %s",
-		registeredCount, len(files), folder.Path)
-
 	return nil
 }
 
-// findMatchingFiles returns all files in a folder that match the extensions
+// findMatchingFiles returns all files in folder that match the configured extensions.
 func (lw *LogWatcher) findMatchingFiles(folder LogFolder) ([]string, error) {
-	var matchingFiles []string
-
+	var matches []string
 	err := filepath.Walk(folder.Path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+		if err != nil || info.IsDir() {
 			return err
 		}
-
-		// Skip directories
-		if info.IsDir() {
-			return nil
-		}
-
-		// Check if file matches any of the extensions
 		for _, ext := range folder.Extensions {
-			// Convert glob pattern to regex (simple implementation)
-			pattern := strings.ReplaceAll(ext, ".", "\\.")
-			pattern = strings.ReplaceAll(pattern, "*", ".*")
-			pattern = "^" + pattern + "$"
-
-			matched, _ := regexp.MatchString(pattern, filepath.Base(path))
-			if matched {
-				matchingFiles = append(matchingFiles, path)
+			pattern := "^" + strings.ReplaceAll(strings.ReplaceAll(ext, ".", "\\."), "*", ".*") + "$"
+			if matched, _ := regexp.MatchString(pattern, filepath.Base(path)); matched {
+				matches = append(matches, path)
 				break
 			}
 		}
-
 		return nil
 	})
-
-	return matchingFiles, err
+	return matches, err
 }
 
-// registerFile registers a file for monitoring WITHOUT opening it
+// registerFile adds a file to the tracking map (no file handle kept open).
+// Must be called while lw.mu write lock is held.
 func (lw *LogWatcher) registerFile(filePath string) error {
-	// Get file info to store initial state
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return err
 	}
-
-	// Create LogFile metadata (NO FILE HANDLE)
-	logFile := &LogFile{
-		Path:         filePath,
-		LastPosition: info.Size(), // Start at end (tail -f behavior)
-		LastModTime:  info.ModTime(),
-		LastSize:     info.Size(),
+	lw.files[filePath] = &LogFile{
+		Path:        filePath,
+		LastModTime: info.ModTime(),
+		LastSize:    info.Size(),
+		// LastPosition starts at 0 so existing content is read on startup.
 	}
-
-	lw.files[filePath] = logFile
-
-	runtime.LogInfof(lw.ctx, "Registered file for monitoring: %s", filePath)
+	runtime.LogInfof(lw.appCtx, "Registered file: %s", filePath)
 	return nil
 }
 
-// eventLoop processes file system events
-func (lw *LogWatcher) eventLoop() {
+// eventLoop is the main goroutine that processes fsnotify events.
+func (lw *LogWatcher) eventLoop(ctx context.Context) {
 	defer lw.wg.Done()
-
 	for {
 		select {
-		case <-lw.stopChan:
-			runtime.LogInfof(lw.ctx, "Event loop stopping...")
+		case <-ctx.Done():
 			return
-
 		case event, ok := <-lw.watcher.Events:
 			if !ok {
-				runtime.LogInfof(lw.ctx, "Watcher events channel closed")
 				return
 			}
-
 			lw.handleEvent(event)
-
 		case err, ok := <-lw.watcher.Errors:
 			if !ok {
-				runtime.LogInfof(lw.ctx, "Watcher errors channel closed")
 				return
 			}
-			runtime.LogErrorf(lw.ctx, "Watcher error: %v", err)
+			runtime.LogErrorf(lw.appCtx, "Watcher error: %v", err)
 		}
 	}
 }
 
-// handleEvent processes a file system event
+// handleEvent dispatches a fsnotify event to the appropriate handler.
 func (lw *LogWatcher) handleEvent(event fsnotify.Event) {
+	// Use RLock since we are only reading the files map.
 	lw.mu.RLock()
 	logFile, exists := lw.files[event.Name]
 	lw.mu.RUnlock()
 
-	// Handle file creation
 	if event.Op&fsnotify.Create == fsnotify.Create {
 		if !exists {
 			lw.handleNewFile(event.Name)
@@ -292,21 +286,19 @@ func (lw *LogWatcher) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// Handle modification of existing file
 	if event.Op&fsnotify.Write == fsnotify.Write {
 		lw.readNewLines(logFile)
 	}
 
-	// Handle file removal/rename
 	if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Rename == fsnotify.Rename {
 		lw.removeFile(event.Name)
 	}
 }
 
-// handleNewFile checks if a new file matches our patterns and starts monitoring it
+// handleNewFile checks whether a newly created file matches monitored patterns
+// and, if so, registers and reads it.
 func (lw *LogWatcher) handleNewFile(filePath string) {
 	lw.mu.RLock()
-	// Make a copy of folders to avoid holding the lock during file operations
 	folders := make([]LogFolder, len(lw.folders))
 	copy(folders, lw.folders)
 	lw.mu.RUnlock()
@@ -315,200 +307,176 @@ func (lw *LogWatcher) handleNewFile(filePath string) {
 		if !folder.Enabled {
 			continue
 		}
-
-		// Check if file is in this folder
 		if !strings.HasPrefix(filePath, folder.Path) {
 			continue
 		}
-
-		// Check if file matches extensions
 		for _, ext := range folder.Extensions {
-			pattern := strings.ReplaceAll(ext, ".", "\\.")
-			pattern = strings.ReplaceAll(pattern, "*", ".*")
-			pattern = "^" + pattern + "$"
-
-			matched, _ := regexp.MatchString(pattern, filepath.Base(filePath))
-			if matched {
-				// Small delay to ensure file is ready
+			pattern := "^" + strings.ReplaceAll(strings.ReplaceAll(ext, ".", "\\."), "*", ".*") + "$"
+			if matched, _ := regexp.MatchString(pattern, filepath.Base(filePath)); matched {
+				// Short delay to ensure the file is ready to read.
 				time.Sleep(100 * time.Millisecond)
 
-				// Lock only when actually modifying the files map
 				lw.mu.Lock()
-				lw.registerFile(filePath)
+				err := lw.registerFile(filePath)
+				var newFile *LogFile
+				if err == nil {
+					newFile = lw.files[filePath]
+				}
 				lw.mu.Unlock()
+
+				if newFile != nil {
+					lw.readNewLines(newFile)
+				} else if err != nil {
+					runtime.LogErrorf(lw.appCtx, "Error registering new file %s: %v", filePath, err)
+				}
 				return
 			}
 		}
 	}
 }
 
-// removeFile removes a file from tracking (no file handles to close!)
+// removeFile removes a file from tracking.
 func (lw *LogWatcher) removeFile(filePath string) {
 	lw.mu.Lock()
 	defer lw.mu.Unlock()
-
 	if _, exists := lw.files[filePath]; exists {
 		delete(lw.files, filePath)
-		runtime.LogInfof(lw.ctx, "Stopped monitoring file: %s", filePath)
+		runtime.LogInfof(lw.appCtx, "Stopped monitoring: %s", filePath)
 	}
 }
 
-// readNewLines reads new lines from a log file by opening it temporarily
+// readNewLines opens the file, reads any new lines since the last position,
+// applies filters, and emits each matching line as a "logLine" event.
 func (lw *LogWatcher) readNewLines(logFile *LogFile) {
 	logFile.mu.Lock()
 	defer logFile.mu.Unlock()
 
-	// Check if file still exists
 	info, err := os.Stat(logFile.Path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// File was deleted, will be handled by remove event
-			return
+		if !os.IsNotExist(err) {
+			runtime.LogErrorf(lw.appCtx, "Stat error for %s: %v", logFile.Path, err)
 		}
-		runtime.LogErrorf(lw.ctx, "Error getting file info for %s: %v", logFile.Path, err)
 		return
 	}
 
 	currentSize := info.Size()
 
-	// Detect log rotation (file was truncated or recreated)
+	// Detect log rotation (file shrunk or was recreated).
 	if currentSize < logFile.LastPosition {
-		runtime.LogInfof(lw.ctx, "Log rotation detected for %s, restarting from beginning", filepath.Base(logFile.Path))
+		runtime.LogInfof(lw.appCtx, "Log rotation detected for %s", filepath.Base(logFile.Path))
 		logFile.LastPosition = 0
 		logFile.LastSize = 0
 	}
 
-	// If no new content, skip
 	if currentSize == logFile.LastPosition {
-		return
+		return // No new content.
 	}
 
-	// Open file ONLY for reading (shared read access)
 	file, err := os.OpenFile(logFile.Path, os.O_RDONLY, 0)
 	if err != nil {
-		runtime.LogErrorf(lw.ctx, "Error opening file %s: %v", logFile.Path, err)
+		runtime.LogErrorf(lw.appCtx, "Open error for %s: %v", logFile.Path, err)
 		return
 	}
-	// IMPORTANT: Always close the file when done
 	defer file.Close()
 
-	// Seek to last known position
-	_, err = file.Seek(logFile.LastPosition, io.SeekStart)
-	if err != nil {
-		runtime.LogErrorf(lw.ctx, "Error seeking file %s: %v", logFile.Path, err)
+	if _, err = file.Seek(logFile.LastPosition, io.SeekStart); err != nil {
+		runtime.LogErrorf(lw.appCtx, "Seek error for %s: %v", logFile.Path, err)
 		return
 	}
 
-	// Read new lines with buffer limit
-	scanner := bufio.NewScanner(file)
-
-	// Set maximum token size (1MB per line)
-	const maxScanTokenSize = 1024 * 1024 // 1MB
-	buf := make([]byte, 0, 64*1024)      // 64KB initial buffer
-	scanner.Buffer(buf, maxScanTokenSize)
-
-	lineNum := 0
-	const maxLinesPerRead = 1000 // Limit lines per read to prevent blocking
-
-	// Find the folder config for filters (make a copy to avoid holding lock)
+	// Find the folder config for this file (read lock, short scope).
 	lw.mu.RLock()
 	var folder *LogFolder
 	for i := range lw.folders {
 		if strings.HasPrefix(logFile.Path, lw.folders[i].Path) {
-			// Make a copy of the folder to avoid race conditions
-			folderCopy := lw.folders[i]
-			folder = &folderCopy
+			cp := lw.folders[i]
+			folder = &cp
 			break
 		}
 	}
 	lw.mu.RUnlock()
 
+	const maxScanTokenSize = 1024 * 1024 // 1 MB per line
+	const maxLinesPerRead = 1000
+
+	buf := make([]byte, 0, 64*1024)
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(buf, maxScanTokenSize)
+
+	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
-
-		// Prevent reading too many lines in one go
 		if lineNum > maxLinesPerRead {
-			runtime.LogInfof(lw.ctx, "Max lines per read reached for %s, will continue on next event", filepath.Base(logFile.Path))
+			runtime.LogInfof(lw.appCtx, "Max lines/read reached for %s", filepath.Base(logFile.Path))
 			break
 		}
 
 		line := scanner.Text()
-
-		// Detect log level
 		level := detectLogLevel(line)
 
-		// Apply filters if configured
-		if folder != nil && len(folder.Filters) > 0 {
-			if !matchesFilter(level, folder.Filters) {
-				continue
-			}
+		if folder != nil && len(folder.Filters) > 0 && !matchesFilter(level, folder.Filters) {
+			continue
 		}
 
-		// Create log entry
-		entry := LogEntry{
+		runtime.EventsEmit(lw.appCtx, "logLine", LogEntry{
 			FilePath:  logFile.Path,
 			FileName:  filepath.Base(logFile.Path),
 			Line:      line,
 			Level:     level,
 			Timestamp: time.Now(),
 			LineNum:   lineNum,
-		}
-
-		// Emit to frontend
-		runtime.EventsEmit(lw.ctx, "logLine", entry)
+		})
 	}
 
-	// Check for scanner errors
 	if err := scanner.Err(); err != nil {
-		runtime.LogErrorf(lw.ctx, "Error scanning file %s: %v", logFile.Path, err)
+		runtime.LogErrorf(lw.appCtx, "Scanner error for %s: %v", logFile.Path, err)
 	}
 
-	// Update position to current file pointer
-	newPosition, err := file.Seek(0, io.SeekCurrent)
-	if err == nil {
-		logFile.LastPosition = newPosition
+	// Update position to where the scanner left off.
+	if pos, err := file.Seek(0, io.SeekCurrent); err == nil {
+		logFile.LastPosition = pos
 		logFile.LastModTime = info.ModTime()
 		logFile.LastSize = currentSize
 	}
-
-	// File is automatically closed by defer when function exits
 }
 
-// detectLogLevel attempts to detect the log level from a line
+// detectLogLevel infers a log level from the content of a line.
 func detectLogLevel(line string) string {
-	lineLower := strings.ToLower(line)
-
-	// Common log level patterns
-	patterns := map[string][]string{
-		"error":   {"error", "err", "fatal", "critical", "exception"},
-		"warning": {"warning", "warn"},
-		"info":    {"info", "information"},
-		"debug":   {"debug", "trace"},
-		"success": {"success", "ok", "passed"},
+	lower := strings.ToLower(line)
+	switch {
+	case containsAny(lower, "error", "err", "fatal", "critical", "exception"):
+		return "error"
+	case containsAny(lower, "warning", "warn"):
+		return "warning"
+	case containsAny(lower, "debug", "trace"):
+		return "debug"
+	case containsAny(lower, "success", "ok", "passed"):
+		return "success"
+	case containsAny(lower, "info", "information"):
+		return "info"
+	default:
+		return "info"
 	}
-
-	for level, keywords := range patterns {
-		for _, keyword := range keywords {
-			if strings.Contains(lineLower, keyword) {
-				return level
-			}
-		}
-	}
-
-	return "info" // default
 }
 
-// matchesFilter checks if a log level matches any of the filters
-func matchesFilter(level string, filters []string) bool {
-	if len(filters) == 0 {
-		return true // No filters = show all
-	}
-
-	for _, filter := range filters {
-		if strings.EqualFold(level, filter) {
+func containsAny(s string, keywords ...string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(s, kw) {
 			return true
 		}
 	}
+	return false
+}
 
+// matchesFilter reports whether level is in the filter list.
+func matchesFilter(level string, filters []string) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	for _, f := range filters {
+		if strings.EqualFold(level, f) {
+			return true
+		}
+	}
 	return false
 }

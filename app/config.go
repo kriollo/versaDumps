@@ -177,7 +177,8 @@ func LoadConfig() (*Config, error) {
 	return nil, err
 }
 
-// SaveConfig writes the configuration to config.yml
+// SaveConfig writes the configuration to config.yml atomically.
+// It writes to a .tmp file first then renames to prevent corruption on crash.
 func SaveConfig(cfg *Config) error {
 	// Get config file path
 	configPath, err := getConfigPath()
@@ -185,18 +186,23 @@ func SaveConfig(cfg *Config) error {
 		return err
 	}
 
-	// Open file for write (truncate/create)
-	f, err := os.Create(configPath)
+	// Write to a temporary file first
+	tmpPath := configPath + ".tmp"
+	f, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	encoder := yaml.NewEncoder(f)
-	defer encoder.Close()
+	encodeErr := encoder.Encode(cfg)
+	encoder.Close()
+	f.Close()
 
-	if err := encoder.Encode(cfg); err != nil {
-		return err
+	if encodeErr != nil {
+		os.Remove(tmpPath)
+		return encodeErr
 	}
-	return nil
+
+	// Atomically replace the config file (POSIX rename is atomic)
+	return os.Rename(tmpPath, configPath)
 }

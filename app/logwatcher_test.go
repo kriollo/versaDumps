@@ -21,7 +21,7 @@ func TestNewLogWatcher(t *testing.T) {
 		t.Fatal("NewLogWatcher() returned nil")
 	}
 
-	if watcher.ctx != ctx {
+	if watcher.appCtx != ctx {
 		t.Error("Context not set correctly")
 	}
 
@@ -373,11 +373,9 @@ func TestLogWatcher_RegisterFile(t *testing.T) {
 		t.Errorf("Path mismatch: expected %s, got %s", logFile, logFileData.Path)
 	}
 
-	// Verify initial position is at end of file (tail -f behavior)
-	info, _ := os.Stat(logFile)
-	if logFileData.LastPosition != info.Size() {
-		t.Errorf("Initial position should be at end of file. Expected %d, got %d",
-			info.Size(), logFileData.LastPosition)
+	// Initial position is 0 so that Start() reads existing content on startup.
+	if logFileData.LastPosition != 0 {
+		t.Errorf("Initial position should be 0 (start of file). Got %d", logFileData.LastPosition)
 	}
 }
 
